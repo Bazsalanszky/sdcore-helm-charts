@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Balázs Toldi
+# SPDX-License-Identifier: Apache-2.0
+
+# Values for the sd-core chart on an IPv6-only cluster (README.md).
+global:
+  network:
+    ipFamilyPolicy: SingleStack
+    ipFamilies: [IPv6]
+    # Defaults to the first of ipFamilies; shown for completeness.
+    preferredFamily: IPv6
+
+# What global.network does in each chart:
+# - every Service: ipFamilyPolicy SingleStack, ipFamilies [IPv6];
+# - every network function: POD_IPS next to POD_IP, and bindingAddr "::" in
+#   each SBI section that does not set one; sbi.preferredFamily IPv6; the
+#   SMF gets pfcp.preferredFamily ipv6, the UPF adapter
+#   UPFADAPTER_PREFERRED_FAMILY ipv6;
+# - MongoDB: additionalMongodConfig net.ipv6 true and net.bindIp "::,0.0.0.0";
+# - the UPF: bessd's gRPC on [::]:10514 and accept_ra 0 on access and core.
+#   N3 and N6 stay on IPv4 (the chart's defaults): the BESS datapath is IPv4.
+
+# 5g-control-plane:
+#   config:
+#     # N2 on an address of the node, e.g.
+#     amf:
+#       ngapp:
+#         externalIPs: ["2001:db8:620::10"]

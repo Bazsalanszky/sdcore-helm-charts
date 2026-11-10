@@ -14,6 +14,7 @@ metadata:
 {{ tuple "simapp" . | include "omec-sub-provision.metadata_labels" | indent 4 }}
 spec:
   type: ClusterIP
+{{- tuple 2 . | include "omec-sub-provision.service_ip_families" }}
   selector:
 {{ tuple "simapp" . | include "omec-sub-provision.metadata_labels" | indent 4 }}
   ports:
@@ -33,6 +34,7 @@ metadata:
 {{ tuple "simapp" . | include "omec-sub-provision.metadata_labels" | indent 4 }}
 spec:
   type: NodePort
+{{- tuple 2 . | include "omec-sub-provision.service_ip_families" }}
   selector:
 {{ tuple "simapp" . | include "omec-sub-provision.metadata_labels" | indent 4 }}
   ports:

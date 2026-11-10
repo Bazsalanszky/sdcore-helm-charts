@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Balázs Toldi
+# SPDX-License-Identifier: Apache-2.0
+# The sd-core values of the IPv6 workflow's kind jobs (.github/workflows/ipv6.yml),
+# under the cluster mode's docs/ipv6/values-<mode>.yaml: the control plane and
+# simapp only, sized for a GitHub-hosted runner. The UPF needs SR-IOV or Multus
+# and is only rendered.
+omec-user-plane:
+  enable: false
+5g-ran-sim:
+  enable: false
+omec-sub-provision:
+  enable: true
+  resources:
+    enabled: false
+5g-control-plane:
+  enable5G: true
+  resources:
+    enabled: false
+  mongodb:
+    resources:
+      mongod:
+        requests:
+          cpu: 250m

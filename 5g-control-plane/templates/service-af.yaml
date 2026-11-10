@@ -18,10 +18,8 @@ metadata:
 {{- end }}
 spec:
   type: {{ .Values.config.af.serviceType }}
-{{- if .Values.config.af.externalIp }}
-  externalIPs:
-    - {{ .Values.config.af.externalIp }}
-{{- end }}
+{{- tuple 2 . | include "5g-control-plane.service_ip_families" }}
+{{- tuple 2 .Values.config.af.externalIp .Values.config.af.externalIPs | include "5g-control-plane.external_ips" }}
   selector:
 {{ tuple "af" . | include "5g-control-plane.metadata_labels" | indent 4 }}
   ports:

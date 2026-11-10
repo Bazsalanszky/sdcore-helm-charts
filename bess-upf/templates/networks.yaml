@@ -3,6 +3,7 @@
 
 # SPDX-License-Identifier: Apache-2.0
 */}}
+{{- $tuning := include "omec-user-plane.tuning_plugin" . }}
 
 ---
 apiVersion: "k8s.cni.cncf.io/v1"
@@ -16,6 +17,11 @@ metadata:
 spec:
   config: '{
     "cniVersion": "0.3.1",
+{{- /* With IPv6, the tuning plugin sets interface sysctls after the interface's own plugin. */}}
+{{- if $tuning }}
+    "name": "access-net",
+    "plugins": [{
+{{- end }}
   {{- if hasKey .Values.config.upf.access "vlan" }}
     "vlan": {{ .Values.config.upf.access.vlan }},
   {{- end }}
@@ -30,6 +36,9 @@ spec:
         "type": {{ .Values.config.upf.access.ipam | quote }}
     },
     "capabilities": { "mac": true}
+{{- if $tuning }}
+    }, {{ $tuning }}]
+{{- end }}
   }'
 ---
 apiVersion: "k8s.cni.cncf.io/v1"
@@ -43,6 +52,11 @@ metadata:
 spec:
   config: '{
     "cniVersion": "0.3.1",
+{{- /* With IPv6, the tuning plugin sets interface sysctls after the interface's own plugin. */}}
+{{- if $tuning }}
+    "name": "core-net",
+    "plugins": [{
+{{- end }}
   {{- if hasKey .Values.config.upf.core "vlan" }}
     "vlan": {{ .Values.config.upf.core.vlan }},
   {{- end }}
@@ -57,4 +71,7 @@ spec:
         "type": {{ .Values.config.upf.core.ipam | quote }}
     },
     "capabilities": { "mac": true}
+{{- if $tuning }}
+    }, {{ $tuning }}]
+{{- end }}
   }'

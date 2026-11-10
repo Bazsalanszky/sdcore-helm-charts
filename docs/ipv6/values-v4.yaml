@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Balázs Toldi
+# SPDX-License-Identifier: Apache-2.0
+
+# Values for the sd-core chart on an IPv4-only cluster: nothing to set. With
+# global.network empty every chart renders what it rendered before IPv6
+# support existed. Kept for symmetry with the other cluster modes (README.md).
+global:
+  network: {}
