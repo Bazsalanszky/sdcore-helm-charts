@@ -100,15 +100,27 @@ config:
     # - bess-init drops outgoing ICMPv6 port unreachable, as it does for IPv4;
     # - the CNI tuning plugin, chained after cniPlugin in access-net and
     #   core-net, sets interfaceSysctls on the access and core interfaces
-    #   (IFNAME is the interface). The default, accept_ra 0, keeps a router
-    #   advertisement on N3 or N6 from adding addresses or a default route
-    #   through core, which would take N4 and DNS off eth0. Forwarding stays
-    #   off as it is for IPv4: BESS forwards in user space. Set it to {} to
-    #   leave the networks as they are (no tuning plugin on the nodes, say).
+    #   (IFNAME is the interface). The defaults:
+    #   - accept_ra 0 keeps a router advertisement on N3 or N6 from adding
+    #     addresses or a default route through core, which would take N4 and
+    #     DNS off eth0;
+    #   - IPv4 forwarding 0 on access and core: BESS forwards in user space,
+    #     and with AF_PACKET the pod's kernel sees every frame BESS sees. A
+    #     kernel that forwards sends each downlink packet back out of core to
+    #     the core gateway, where BESS picks it up and tunnels it a second
+    #     time (every packet to the UE arrives twice, one TTL lower). On an
+    #     IPv4 cluster the CNI usually turns forwarding off in the pod (Calico
+    #     writes net.ipv4.ip_forward 0 for a pod with an IPv4 address), but a
+    #     pod without a cluster IPv4 address, as on an IPv6-only cluster,
+    #     inherits the node's net.ipv4.ip_forward, which is 1 on a Kubernetes
+    #     node.
+    #   Set it to {} to leave the networks as they are (no tuning plugin on the
+    #   nodes, say).
     ipv6:
       # enabled: true
       interfaceSysctls:
         net.ipv6.conf.IFNAME.accept_ra: "0"
+        net.ipv4.conf.IFNAME.forwarding: "0"
     # Dynamic IP allocation is not supported yet
     # Custom routes inside UPF; IPv6 ones too.
     #routes:
