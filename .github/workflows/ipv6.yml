@@ -111,7 +111,18 @@ jobs:
             exit 1
           fi
           yq -N 'select(.kind == "NetworkAttachmentDefinition") | .spec.config' rendered/sd-core.yaml | jq -e -s 'length == 2' >/dev/null
-          echo "Services: [${want}]; POD_IP ${pod_ip}, POD_IPS ${pod_ips}; network attachments are JSON"
+          # With IPv6, both UPF attachments chain the tuning plugin, which turns
+          # off accept_ra and the kernel's IPv4 forwarding (BESS forwards); in
+          # the v4 mode they render as before, without it.
+          tuned=$(yq -N 'select(.kind == "NetworkAttachmentDefinition") | .spec.config' rendered/sd-core.yaml \
+            | jq -s '[.[] | .plugins // [] | .[] | select(.type == "tuning")
+                | select(.sysctl["net.ipv6.conf.IFNAME.accept_ra"] == "0" and .sysctl["net.ipv4.conf.IFNAME.forwarding"] == "0")] | length')
+          if [ "$MODE" = v4 ]; then expected=0; else expected=2; fi
+          if [ "$tuned" != "$expected" ]; then
+            echo "::error::${tuned} UPF network attachments with accept_ra 0 and forwarding 0, expected ${expected}"
+            exit 1
+          fi
+          echo "Services: [${want}]; POD_IP ${pod_ip}, POD_IPS ${pod_ips}; network attachments are JSON, ${tuned} tuned"
 
   # The control plane on a kind cluster of the mode. The chart's resources are
   # checked against the API server, the Services' families as it set them, and
