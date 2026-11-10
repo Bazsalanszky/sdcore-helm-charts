@@ -43,11 +43,21 @@ Nothing below renders while `global.network` is empty.
   only) also gets `POD_IPS` (`status.podIPs`, every address, comma-separated).
 - **SBI**: with IPv6 in `ipFamilies`, each network function's `sbi` section
   that does not set `bindingAddr` gets `bindingAddr: "::"`, which binds both
-  families. `bindingIPv4` stays, as the key older images read. `registerIPv6`
+  families. `bindingIPv4` stays, as the key older images read. Each `sbi`
+  section also gets `preferredFamily` (the family of the function's own URIs
+  and of the peer addresses it picks) unless `cfgFiles` sets it. `registerIPv6`
   (the IPv6 address registered with the NRF) can be set next to
   `registerIPv4` in `cfgFiles`.
 - **SMF**: `pfcp.preferredFamily` is set from `preferredFamily` unless
-  `cfgFiles` sets it. With `pfcp.addr: POD_IPS` it picks the N4 Node ID.
+  `cfgFiles` sets it. It picks the N4 Node ID when `pfcp.addr` has both
+  families, and the order UPF names resolve in. `pfcp.addr` also takes a
+  list, `POD_IPS` for one dual-stack N4 socket, `pfcp.nodeId` sets the Node
+  ID (IPv4, IPv6 or FQDN), and `upfTransportFamily` (a map of UPF hostname to
+  `ipv4` or `ipv6`) the N3/N9 family per UPF; these stay `cfgFiles` keys.
+- **UPF adapter**: `UPFADAPTER_PREFERRED_FAMILY` is set from
+  `config.upfadapter.preferredFamily`, else from `preferredFamily`, and
+  `UPFADAPTER_NODE_ID` from `config.upfadapter.nodeId` when it is set. It
+  reads `POD_IPS` too.
 - **MongoDB**: with IPv6 in `ipFamilies`, the `MongoDBCommunity` resource
   gets `additionalMongodConfig` `net.ipv6: true` and
   `net.bindIp: "::,0.0.0.0"`, so mongod serves both families. MongoDB's
@@ -89,6 +99,8 @@ These work in every mode, and nothing renders while they are unset:
 
 - The BESS datapath carries IPv4 only: N3 and N6 stay on IPv4.
 - `bessctl http` (the `upf-http` Service's port 8000) listens on IPv4 only.
-- The network functions need images that read `bindingAddr`, `registerIPv6`
-  and a `POD_IPS` list. Older images ignore these keys and keep their IPv4
-  behaviour.
+- The network functions need images that read `bindingAddr`, `registerIPv6`,
+  `preferredFamily` and a `POD_IPS` list, and the SMF and UPF adapter images
+  with IPv6 N4 support. Older images ignore these keys and variables and keep
+  their IPv4 behaviour, except that an older SMF cannot parse
+  `pfcp.addr: POD_IPS`.

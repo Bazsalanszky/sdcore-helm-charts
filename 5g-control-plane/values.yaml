@@ -11,9 +11,12 @@
 #   ipFamilyPolicy is SingleStack, PreferDualStack or RequireDualStack, and
 #   ipFamilies is [IPv4], [IPv6], [IPv4, IPv6] or [IPv6, IPv4], primary first.
 # - preferredFamily, IPv4 or IPv6, is the family of the fields that hold one
-#   address; it defaults to the first entry of ipFamilies. It becomes the
-#   SMF's pfcp.preferredFamily, which picks its N4 Node ID when pfcp.addr lists
-#   both families (pfcp.addr: POD_IPS).
+#   address; it defaults to the first entry of ipFamilies. It becomes, unless
+#   set there: every SBI section's preferredFamily (the family of the
+#   function's own URIs and of the peer addresses it picks); the SMF's
+#   pfcp.preferredFamily, which picks its N4 Node ID when pfcp.addr lists both
+#   families (pfcp.addr: POD_IPS) and the order UPF names resolve in; and the
+#   UPF adapter's UPFADAPTER_PREFERRED_FAMILY (config.upfadapter.preferredFamily).
 # - IPv6 in ipFamilies (or as preferredFamily) turns mongod's IPv6 on
 #   (mongodb.ipv6), and gives every SBI section that does not set bindingAddr
 #   the family-neutral bindingAddr "::"; bindingIPv4 stays, for images that
@@ -418,8 +421,9 @@ config:
             registerIPv4: udm
             # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
             # name of an environment variable holding it); bindingAddr, the family-neutral
-            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
-            # global.network, bindingAddr defaults to "::".
+            # address to bind, of which bindingIPv4 is the older alias; preferredFamily,
+            # IPv4 or IPv6. With IPv6 in global.network, bindingAddr defaults to "::",
+            # and preferredFamily follows global.network.
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -457,8 +461,9 @@ config:
             registerIPv4: udr
             # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
             # name of an environment variable holding it); bindingAddr, the family-neutral
-            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
-            # global.network, bindingAddr defaults to "::".
+            # address to bind, of which bindingIPv4 is the older alias; preferredFamily,
+            # IPv4 or IPv6. With IPv6 in global.network, bindingAddr defaults to "::",
+            # and preferredFamily follows global.network.
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -496,8 +501,9 @@ config:
             registerIPv4: pcf
             # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
             # name of an environment variable holding it); bindingAddr, the family-neutral
-            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
-            # global.network, bindingAddr defaults to "::".
+            # address to bind, of which bindingIPv4 is the older alias; preferredFamily,
+            # IPv4 or IPv6. With IPv6 in global.network, bindingAddr defaults to "::",
+            # and preferredFamily follows global.network.
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -618,8 +624,9 @@ config:
             registerIPv4: nssf
             # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
             # name of an environment variable holding it); bindingAddr, the family-neutral
-            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
-            # global.network, bindingAddr defaults to "::".
+            # address to bind, of which bindingIPv4 is the older alias; preferredFamily,
+            # IPv4 or IPv6. With IPv6 in global.network, bindingAddr defaults to "::",
+            # and preferredFamily follows global.network.
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -738,8 +745,9 @@ config:
             registerIPv4: amf
             # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
             # name of an environment variable holding it); bindingAddr, the family-neutral
-            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
-            # global.network, bindingAddr defaults to "::".
+            # address to bind, of which bindingIPv4 is the older alias; preferredFamily,
+            # IPv4 or IPv6. With IPv6 in global.network, bindingAddr defaults to "::",
+            # and preferredFamily follows global.network.
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -835,8 +843,9 @@ config:
             registerIPv4: nrf
             # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
             # name of an environment variable holding it); bindingAddr, the family-neutral
-            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
-            # global.network, bindingAddr defaults to "::".
+            # address to bind, of which bindingIPv4 is the older alias; preferredFamily,
+            # IPv4 or IPv6. With IPv6 in global.network, bindingAddr defaults to "::",
+            # and preferredFamily follows global.network.
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -884,6 +893,20 @@ config:
             topicName: "sdcore-data-source-smf"
           pfcp:
              addr: "POD_IP"
+             # Optional N4 settings, for SMF images with IPv6 N4 support:
+             # - addr also takes a comma-separated list of addresses, one per family,
+             #   or the name of an environment variable holding one: "POD_IPS" (every
+             #   pod address) gives one dual-stack N4 socket and both F-SEID addresses;
+             # - nodeId, the Node ID to advertise (IPv4, IPv6 or FQDN, or the name of
+             #   an environment variable holding one); by default the N4 address;
+             # - preferredFamily, ipv4 or ipv6: the Node ID's family when addr has
+             #   both, and the order UPF names resolve in. It follows global.network.
+             # nodeId: smf.example.org
+          # Optional: the N3/N9 address family per UPF, by the UPF's hostname in
+          # the session-management configuration: ipv4 or ipv6 (default: from the
+          # UPF's addresses).
+          # upfTransportFamily:
+          #   upf.example.org: ipv6
           smfName: SMF
           nrfUri: https://nrf:29510
           webuiUri: http://webui:5001
@@ -893,8 +916,9 @@ config:
             registerIPv4: smf
             # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
             # name of an environment variable holding it); bindingAddr, the family-neutral
-            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
-            # global.network, bindingAddr defaults to "::".
+            # address to bind, of which bindingIPv4 is the older alias; preferredFamily,
+            # IPv4 or IPv6. With IPv6 in global.network, bindingAddr defaults to "::",
+            # and preferredFamily follows global.network.
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -932,8 +956,9 @@ config:
             registerIPv4: ausf
             # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
             # name of an environment variable holding it); bindingAddr, the family-neutral
-            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
-            # global.network, bindingAddr defaults to "::".
+            # address to bind, of which bindingIPv4 is the older alias; preferredFamily,
+            # IPv4 or IPv6. With IPv6 in global.network, bindingAddr defaults to "::",
+            # and preferredFamily follows global.network.
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -990,6 +1015,16 @@ config:
   upfadapter:
     deploy: true
     serviceType: ClusterIP
+    # Optional N4 settings, for upf-adapter images with IPv6 N4 support; each
+    # becomes an environment variable only when set. The adapter also reads
+    # POD_IPS, which global.network adds.
+    # - preferredFamily (UPFADAPTER_PREFERRED_FAMILY): ipv4, ipv6 or auto, the
+    #   family of its Node ID and the order UPF names resolve in; it follows
+    #   global.network when unset.
+    # - nodeId (UPFADAPTER_NODE_ID): the Node ID to advertise, IPv4, IPv6 or an
+    #   FQDN; by default the pod address of the preferred family.
+    # preferredFamily: ipv6
+    # nodeId: upf-adapter.example.org
     n4:
       port: 8805
       # Provide nodePort when serviceType is NodePort
