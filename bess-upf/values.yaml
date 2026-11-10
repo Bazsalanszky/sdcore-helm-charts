@@ -106,14 +106,15 @@ config:
     #     DNS off eth0;
     #   - IPv4 forwarding 0 on access and core: BESS forwards in user space,
     #     and with AF_PACKET the pod's kernel sees every frame BESS sees. A
-    #     kernel that forwards sends each downlink packet back out of core to
-    #     the core gateway, where BESS picks it up and tunnels it a second
-    #     time (every packet to the UE arrives twice, one TTL lower). On an
-    #     IPv4 cluster the CNI usually turns forwarding off in the pod (Calico
-    #     writes net.ipv4.ip_forward 0 for a pod with an IPv4 address), but a
-    #     pod without a cluster IPv4 address, as on an IPv6-only cluster,
-    #     inherits the node's net.ipv4.ip_forward, which is 1 on a Kubernetes
-    #     node.
+    #     kernel that forwards routes each downlink packet towards the UE
+    #     pool. A pod with no cluster IPv4 address, as on an IPv6-only
+    #     cluster, has no IPv4 default route through eth0, so that route is
+    #     the default through core. The packet goes back out of core, where
+    #     BESS picks it up and tunnels it a second time (every packet to the
+    #     UE arrives twice, one TTL lower). With a cluster IPv4 address the
+    #     copy leaves through eth0 instead and is not duplicated, but it still
+    #     leaks into the pod network. Whether the pod's kernel forwards is up
+    #     to the CNI (Calico: containerIPForwarding), so it is set here.
     #   Set it to {} to leave the networks as they are (no tuning plugin on the
     #   nodes, say).
     ipv6:
