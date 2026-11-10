@@ -76,12 +76,15 @@ Nothing below renders while `global.network` is empty.
   advertisement on N3 or N6 from adding a default route through `core`, which
   would take N4 and DNS off `eth0`. `forwarding` 0 keeps the pod's kernel from
   forwarding what BESS already forwards in user space: with AF_PACKET the
-  kernel sees every frame, and a forwarding kernel sends each downlink packet
-  back out of `core`, where BESS tunnels it to the UE a second time. On an
-  IPv6-only cluster the pod has no cluster IPv4 address, so the CNI does not
-  turn IPv4 forwarding off as it does on IPv4 clusters, and the pod inherits
-  the node's `net.ipv4.ip_forward` 1. The tuning plugin must be installed on
-  the nodes; set `interfaceSysctls: {}` to leave it out.
+  kernel sees every frame, and a forwarding kernel routes each downlink packet
+  towards the UE pool. On an IPv6-only cluster the pod has no IPv4 default
+  route through `eth0`, so the packet goes back out of `core`, where BESS
+  tunnels it to the UE a second time. With a cluster IPv4 address it leaks
+  into the pod network through `eth0` instead. Whether the pod's kernel
+  forwards depends on the CNI (Calico's `containerIPForwarding`, and the
+  node's `net.ipv4.ip_forward` for a pod with no IPv4 address), so the chart
+  sets it. The tuning plugin must be installed on the nodes; set
+  `interfaceSysctls: {}` to leave it out.
 
 ## Values that take both families
 
