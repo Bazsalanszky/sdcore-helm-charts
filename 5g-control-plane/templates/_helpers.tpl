@@ -781,17 +781,51 @@ Usage: {{- tuple 8 . | include "5g-control-plane.pod_ips_env" }}
 {{- end -}}
 
 {{/*
-Fills in the family-neutral SBI binding address of a network function: with
-IPv6 enabled, an sbi section that does not set bindingAddr gets "::", which
-the functions bind dual-stack. bindingIPv4 stays as it is, as the alias older
-images read. registerIPv6 and bindingAddr set in cfgFiles are kept; nothing
-changes without IPv6.
+Fills in the family settings of a network function's sbi section:
+- with IPv6 enabled, bindingAddr "::", which the functions bind dual-stack.
+  bindingIPv4 stays as it is, as the alias older images read;
+- with a family in global.network, preferredFamily (IPv4 or IPv6), the family
+  of the function's own URIs and of the peer addresses it picks.
+Keys set in cfgFiles (bindingAddr, preferredFamily, registerIPv6) are kept;
+nothing changes while global.network is empty.
 Usage: {{- tuple $sbi . | include "5g-control-plane.sbi_defaults" }}
 */}}
 {{- define "5g-control-plane.sbi_defaults" -}}
 {{- $sbi := index . 0 -}}
 {{- if and (include "5g-control-plane.ipv6_enabled" (index . 1)) (not (hasKey $sbi "bindingAddr")) -}}
 {{- $_ := set $sbi "bindingAddr" "::" -}}
+{{- end -}}
+{{- $preferredFamily := include "5g-control-plane.preferred_family" (index . 1) -}}
+{{- if and $preferredFamily (not (hasKey $sbi "preferredFamily")) -}}
+{{- $_ := set $sbi "preferredFamily" $preferredFamily -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The UPF adapter's optional N4 settings, as env entries (none when unset), at
+the indentation given: UPFADAPTER_PREFERRED_FAMILY, from
+config.upfadapter.preferredFamily or else global.network's preferred family,
+and UPFADAPTER_NODE_ID from config.upfadapter.nodeId. The adapter reads
+POD_IPS (pod_ips_env) as well.
+Usage: {{- tuple 8 . | include "5g-control-plane.upfadapter_n4_env" }}
+*/}}
+{{- define "5g-control-plane.upfadapter_n4_env" -}}
+{{- $indent := index . 0 -}}
+{{- $ctx := index . 1 -}}
+{{- $adapter := $ctx.Values.config.upfadapter -}}
+{{- $family := $adapter.preferredFamily | default (include "5g-control-plane.preferred_family" $ctx) | toString | lower -}}
+{{- if not (has $family (list "" "ipv4" "ipv6" "auto")) -}}
+{{- fail (printf "config.upfadapter.preferredFamily is %q, expected ipv4, ipv6 or auto" $adapter.preferredFamily) -}}
+{{- end -}}
+{{- $env := list -}}
+{{- with $family -}}
+{{- $env = append $env (dict "name" "UPFADAPTER_PREFERRED_FAMILY" "value" .) -}}
+{{- end -}}
+{{- with $adapter.nodeId -}}
+{{- $env = append $env (dict "name" "UPFADAPTER_NODE_ID" "value" (toString .)) -}}
+{{- end -}}
+{{- with $env -}}
+{{- toYaml . | nindent $indent -}}
 {{- end -}}
 {{- end -}}
 
