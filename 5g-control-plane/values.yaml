@@ -3,6 +3,31 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# IPv6 and dual-stack, opt-in. While global.network is empty the chart renders
+# what it renders for an IPv4 cluster. Set it in the sd-core umbrella chart once
+# for every chart, or here for this chart alone (docs/ipv6 has values for an
+# IPv4, an IPv6-only and the two dual-stack clusters).
+# - ipFamilyPolicy and ipFamilies are set on every Service as they are given:
+#   ipFamilyPolicy is SingleStack, PreferDualStack or RequireDualStack, and
+#   ipFamilies is [IPv4], [IPv6], [IPv4, IPv6] or [IPv6, IPv4], primary first.
+# - preferredFamily, IPv4 or IPv6, is the family of the fields that hold one
+#   address; it defaults to the first entry of ipFamilies. It becomes the
+#   SMF's pfcp.preferredFamily, which picks its N4 Node ID when pfcp.addr lists
+#   both families (pfcp.addr: POD_IPS).
+# - IPv6 in ipFamilies (or as preferredFamily) turns mongod's IPv6 on
+#   (mongodb.ipv6), and gives every SBI section that does not set bindingAddr
+#   the family-neutral bindingAddr "::"; bindingIPv4 stays, for images that
+#   read only that key.
+# - Anything set adds POD_IPS (status.podIPs, comma-separated) next to POD_IP
+#   (status.podIP, the primary family only) on every network function.
+# Example, an IPv6-only cluster:
+#   global:
+#     network:
+#       ipFamilyPolicy: SingleStack
+#       ipFamilies: [IPv6]
+global:
+  network: {}
+
 images:
   repository: "ghcr.io/omec-project/" # default GitHub Registry
   tags:
@@ -216,6 +241,18 @@ mongodb:
   # Required when enabled; kept in a Secret and in the functions' configuration
   # Secrets.
   password: ""
+  # mongod on IPv6: true or false; unset follows global.network, on when it
+  # has IPv6. On, the resource gets additionalMongodConfig net.ipv6 true and
+  # net.bindIp "::,0.0.0.0", so mongod serves both families. MongoDB's
+  # automation agent ignores net.bindIpAll (mongodb/mongodb-kubernetes#1191),
+  # and "::" alone is IPv6-only.
+  # ipv6: true
+  # Passed to the MongoDBCommunity resource as additionalMongodConfig, merged
+  # over the IPv6 settings above. The structure of the mongod configuration
+  # file: https://www.mongodb.com/docs/manual/reference/configuration-options/
+  # additionalMongodConfig:
+  #   net:
+  #     bindIp: "::"
   resources:
     # MongoDB is the control plane's shared datastore; sized from a CPU sweep.
     mongod:
@@ -379,6 +416,10 @@ config:
             scheme: https
             bindingIPv4: "0.0.0.0"
             registerIPv4: udm
+            # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
+            # name of an environment variable holding it); bindingAddr, the family-neutral
+            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
+            # global.network, bindingAddr defaults to "::".
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -414,6 +455,10 @@ config:
             scheme: https
             bindingIPv4: "0.0.0.0"
             registerIPv4: udr
+            # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
+            # name of an environment variable holding it); bindingAddr, the family-neutral
+            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
+            # global.network, bindingAddr defaults to "::".
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -423,6 +468,10 @@ config:
     podAnnotations:
       field.cattle.io/workloadMetrics: '[{"path":"/metrics","port":8080,"schema":"HTTP"}]'
     serviceType: ClusterIP
+    # Optional external IP for the Service, and a list of them (e.g. one per
+    # family) added to it.
+    #externalIp:
+    #externalIPs: []
     prometheus:
       port: 8080
       # Provide nodePort when serviceType is NodePort
@@ -445,6 +494,10 @@ config:
             scheme: https
             bindingIPv4: "0.0.0.0"
             registerIPv4: pcf
+            # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
+            # name of an environment variable holding it); bindingAddr, the family-neutral
+            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
+            # global.network, bindingAddr defaults to "::".
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -476,6 +529,8 @@ config:
     # Optional external IP for the Service. It applies to every port of the Service
     # (sbi, northbound and prometheus), not only northbound.
     #externalIp:
+    # Or a list of them, e.g. one per family; added to externalIp.
+    #externalIPs: []
     prometheus:
       port: 8080
       # Provide nodePort when serviceType is NodePort
@@ -561,6 +616,10 @@ config:
             scheme: https
             bindingIPv4: "0.0.0.0"
             registerIPv4: nssf
+            # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
+            # name of an environment variable holding it); bindingAddr, the family-neutral
+            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
+            # global.network, bindingAddr defaults to "::".
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -585,6 +644,8 @@ config:
       #nodePort: 30088
     ngapp:
       #externalIp:
+      # Or a list of them, e.g. one per family; added to externalIp.
+      #externalIPs: []
       port: 38412
       #nodePort: 30071
     cfgFiles:
@@ -637,6 +698,8 @@ config:
       #nodePort: 30088
     ngapp:
       #externalIp:
+      # Or a list of them, e.g. one per family; added to externalIp.
+      #externalIPs: []
       # Set to Local so that the AMF sees each gNB's own address on N2. With the default
       # (Cluster) kube-proxy masquerades every association that arrives on externalIp, so the
       # AMF's logs (ran_addr), its gnb_session_profile metric and its traces show every gNB as
@@ -673,6 +736,10 @@ config:
             scheme: https
             bindingIPv4: "0.0.0.0"
             registerIPv4: amf
+            # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
+            # name of an environment variable holding it); bindingAddr, the family-neutral
+            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
+            # global.network, bindingAddr defaults to "::".
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -740,6 +807,10 @@ config:
     podAnnotations:
       field.cattle.io/workloadMetrics: '[{"path":"/metrics","port":8080,"schema":"HTTP"}]'
     serviceType: ClusterIP
+    # Optional external IP for the Service, and a list of them (e.g. one per
+    # family) added to it.
+    #externalIp:
+    #externalIPs: []
     prometheus:
       port: 8080
       # Provide nodePort when serviceType is NodePort
@@ -762,6 +833,10 @@ config:
             scheme: https
             bindingIPv4: "0.0.0.0"
             registerIPv4: nrf
+            # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
+            # name of an environment variable holding it); bindingAddr, the family-neutral
+            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
+            # global.network, bindingAddr defaults to "::".
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -816,6 +891,10 @@ config:
             scheme: https
             bindingIPv4: "0.0.0.0"
             registerIPv4: smf
+            # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
+            # name of an environment variable holding it); bindingAddr, the family-neutral
+            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
+            # global.network, bindingAddr defaults to "::".
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key
@@ -851,6 +930,10 @@ config:
             scheme: https
             bindingIPv4: "0.0.0.0"
             registerIPv4: ausf
+            # Optional: registerIPv6, the IPv6 address registered with the NRF (or the
+            # name of an environment variable holding it); bindingAddr, the family-neutral
+            # address to bind, of which bindingIPv4 is the older alias. With IPv6 in
+            # global.network, bindingAddr defaults to "::".
             tls:
               pem: /var/run/certs/tls.crt
               key: /var/run/certs/tls.key

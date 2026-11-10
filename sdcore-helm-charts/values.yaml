@@ -7,6 +7,17 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# IPv6 and dual-stack, opt-in, for 5g-control-plane, omec-user-plane and
+# omec-sub-provision at once; see 5g-control-plane's values.yaml for the keys
+# and docs/ipv6 for values per cluster mode. While it is empty the charts
+# render what they render for an IPv4 cluster.
+#   network:
+#     ipFamilyPolicy: PreferDualStack   # SingleStack | PreferDualStack | RequireDualStack
+#     ipFamilies: [IPv6, IPv4]          # [IPv4] | [IPv6] | [IPv4, IPv6] | [IPv6, IPv4], primary first
+#     preferredFamily: IPv6             # single-address fields; defaults to the first of ipFamilies
+global:
+  network: {}
+
 #Images tagged for the release
 omec-control-plane:
   enable4G: false

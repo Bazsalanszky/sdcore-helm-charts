@@ -2,6 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# IPv6 and dual-stack, opt-in; see 5g-control-plane's values.yaml. While it is
+# empty the chart renders what it renders for an IPv4 cluster. Here it sets
+# ipFamilyPolicy and ipFamilies on the Services, and IPv6 in ipFamilies (or as
+# preferredFamily) turns on config.upf.ipv6.
+global:
+  network: {}
+
 images:
   repository: "ghcr.io/omec-project/" # default GitHub Registry
   tags:
@@ -86,13 +93,33 @@ config:
       enabled: true
     sriov:
       enabled: true
+    # The UPF pod's IPv6 settings. They apply when enabled is true, or, with
+    # enabled unset, when global.network has IPv6:
+    # - bessd serves gRPC on [::]:10514 (dual-stack) instead of 0.0.0.0:10514,
+    #   so the liveness probe reaches it on an IPv6 pod IP;
+    # - bess-init drops outgoing ICMPv6 port unreachable, as it does for IPv4;
+    # - the CNI tuning plugin, chained after cniPlugin in access-net and
+    #   core-net, sets interfaceSysctls on the access and core interfaces
+    #   (IFNAME is the interface). The default, accept_ra 0, keeps a router
+    #   advertisement on N3 or N6 from adding addresses or a default route
+    #   through core, which would take N4 and DNS off eth0. Forwarding stays
+    #   off as it is for IPv4: BESS forwards in user space. Set it to {} to
+    #   leave the networks as they are (no tuning plugin on the nodes, say).
+    ipv6:
+      # enabled: true
+      interfaceSysctls:
+        net.ipv6.conf.IFNAME.accept_ra: "0"
     # Dynamic IP allocation is not supported yet
-    # Custom routes inside UPF
+    # Custom routes inside UPF; IPv6 ones too.
     #routes:
     #  - to: 10.76.28.173/32
     #    via: 169.254.1.1
     ran:
       subnet: 192.168.251.0/24
+      # More RAN subnets, of either family; each is routed through the access
+      # gateway of its family (gateways.ipv6 for an IPv6 one).
+      #subnets:
+      #  - 2001:db8:251::/64
     access:
       ipam: static
       cniPlugin: vfioveth
@@ -100,6 +127,14 @@ config:
       resourceName: "intel.com/intel_sriov_vfio"
       gateway: 192.168.252.1
       ip: 192.168.252.3/24
+      # Addresses of either family, used instead of ip; and a gateway per family
+      # (gateways.ipv4 defaults to gateway).
+      #ips:
+      #  - 192.168.252.3/24
+      #  - 2001:db8:252::3/64
+      #gateways:
+      #  ipv4: 192.168.252.1
+      #  ipv6: 2001:db8:252::1
       #mac:
       #vlan:
       #iface:
@@ -110,6 +145,21 @@ config:
       resourceName: "intel.com/intel_sriov_vfio"
       gateway: 192.168.250.1
       ip: 192.168.250.3/24
+      # As for access.
+      #ips:
+      #  - 192.168.250.3/24
+      #  - 2001:db8:250::3/64
+      #gateways:
+      #  ipv4: 192.168.250.1
+      #  ipv6: 2001:db8:250::1
+      # Metric of the default route through the core gateway, per family. The
+      # IPv4 route is always added, with metric 110 unless set. An IPv6 route is
+      # added only when ipv6 is set, through gateways.ipv6. Keep it above the
+      # metric of the pod's IPv6 default route on eth0 (usually 1024): a lower
+      # one sends N4, DNS and all other pod-network traffic out through core.
+      #defaultRouteMetric:
+      #  ipv4: 110
+      #  ipv6: 2048
       #mac:
       #vlan:
       #iface:
@@ -162,6 +212,8 @@ config:
 service:
   type: ClusterIP
   #externalIp:
+  # Or a list of them, e.g. one per family; added to externalIp.
+  #externalIPs: []
   #annotations:
 
 servicemonitor:

@@ -10,6 +10,7 @@
 {{- if not .Values.config.useExistingConfigMap -}}
 {{- $smfcfg := index .Values.config.smf.cfgFiles "smfcfg.yaml" }}
 {{- $sbi := index $smfcfg.configuration "sbi" }}
+{{- tuple $sbi . | include "5g-control-plane.sbi_defaults" }}
 
 {{- if not (hasKey $smfcfg.configuration "mongodb") -}}
 {{- $_ := dict "name" .Values.config.mongodb.name "url" (include "5g-control-plane.mongodbUrl" .) | set $smfcfg.configuration "mongodb" -}}
@@ -23,6 +24,12 @@
 {{- end }}
 {{- if not (hasKey $smfcfg.configuration "enableUPFAdapter") -}}
 {{- $_ := .Values.config.upfadapter.deploy | set $smfcfg.configuration "enableUPFAdapter" -}}
+{{- end }}
+{{- $pfcp := index $smfcfg.configuration "pfcp" | default dict }}
+{{- $preferredFamily := include "5g-control-plane.preferred_family" . }}
+{{- if and $preferredFamily (not (hasKey $pfcp "preferredFamily")) -}}
+{{- $_ := lower $preferredFamily | set $pfcp "preferredFamily" -}}
+{{- $_ := set $smfcfg.configuration "pfcp" $pfcp -}}
 {{- end }}
 {{- if not (hasKey $smfcfg.configuration.kafkaInfo "enableKafka") -}}
 {{- $_ := .Values.kafka.enabled | set $smfcfg.configuration.kafkaInfo "enableKafka" -}}

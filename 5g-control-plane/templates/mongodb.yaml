@@ -25,6 +25,11 @@ spec:
   version: {{ $m.version | quote }}
   members: {{ $m.members }}
   arbiters: {{ $m.arbiters }}
+{{- with include "5g-control-plane.mongod_config" . }}
+  # IPv6 (mongodb.ipv6, global.network) and mongodb.additionalMongodConfig.
+  additionalMongodConfig:
+    {{- . | nindent 4 }}
+{{- end }}
   security:
     authentication:
       modes: ["SCRAM"]

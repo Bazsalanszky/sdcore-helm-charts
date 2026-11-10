@@ -9,6 +9,7 @@
 {{- if not .Values.config.useExistingConfigMap -}}
 {{- $amfcfg := index .Values.config.amf.cfgFiles "amfcfg.yaml" }}
 {{- $sbi := index $amfcfg.configuration "sbi" }}
+{{- tuple $sbi . | include "5g-control-plane.sbi_defaults" }}
 
 {{- if not (hasKey $sbi "port") -}}
 {{- $_ := .Values.config.amf.sbi.port | set $sbi "port" -}}

@@ -15,10 +15,8 @@ metadata:
 {{ tuple "sctplb" . | include "5g-control-plane.metadata_labels" | indent 4 }}
 spec:
   type: {{ .Values.config.sctplb.serviceType }}
-{{- if .Values.config.sctplb.ngapp.externalIp }}
-  externalIPs:
-    - {{ .Values.config.sctplb.ngapp.externalIp }}
-{{- end }}
+{{- tuple 2 . | include "5g-control-plane.service_ip_families" }}
+{{- tuple 2 .Values.config.sctplb.ngapp.externalIp .Values.config.sctplb.ngapp.externalIPs | include "5g-control-plane.external_ips" }}
   selector:
 {{ tuple "sctplb" . | include "5g-control-plane.metadata_labels" | indent 4 }}
   ports:
