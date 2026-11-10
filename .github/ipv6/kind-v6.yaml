@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Balázs Toldi
+# SPDX-License-Identifier: Apache-2.0
+# The kind cluster of the IPv6 workflow's v6 job (.github/workflows/ipv6.yml):
+# IPv6 only.
+# One node, which also runs the workloads.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: ipv6
+nodes:
+  - role: control-plane

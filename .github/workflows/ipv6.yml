@@ -1,0 +1,188 @@
+# SPDX-FileCopyrightText: 2026 Balázs Toldi
+# SPDX-License-Identifier: Apache-2.0
+
+# The charts in each cluster mode of docs/ipv6: rendered, linted and validated
+# with the mode's values, and, on kind clusters of the IPv6 modes, installed.
+name: IPv6 and dual-stack
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "5g-control-plane/**"
+      - "bess-upf/**"
+      - "omec-sub-provision/**"
+      - "sdcore-helm-charts/**"
+      - "docs/ipv6/**"
+      - ".github/ipv6/**"
+      - ".github/workflows/ipv6.yml"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # helm lint and helm template of every chart the mode's values apply to,
+  # kubeconform on the result, and checks of what global.network renders.
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [v4, v6, dual-v4, dual-v6]
+    env:
+      MODE: ${{ matrix.mode }}
+      VALUES: docs/ipv6/values-${{ matrix.mode }}.yaml
+      KUBECONFORM_VERSION: v0.7.0
+      KUBECONFORM_SHA256: c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: latest
+
+      - name: Install kubeconform
+        run: |
+          set -euo pipefail
+          curl -fsSLo /tmp/kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  /tmp/kubeconform.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+
+      - name: Build chart dependencies
+        run: helm dependency build sdcore-helm-charts
+
+      - name: Lint
+        run: |
+          set -euo pipefail
+          # The values files are the umbrella chart's; their global block
+          # applies to a chart installed on its own as well.
+          for chart in 5g-control-plane bess-upf omec-sub-provision sdcore-helm-charts; do
+            helm lint "$chart" -f "$VALUES" \
+              --set mongodb.password=ci --set 5g-control-plane.mongodb.password=ci
+          done
+
+      - name: Render
+        run: |
+          set -euo pipefail
+          mkdir -p rendered
+          helm template sd-core sdcore-helm-charts -f "$VALUES" \
+            --set 5g-control-plane.mongodb.password=ci \
+            --set 5g-control-plane.config.sctplb.deploy=true \
+            --set 5g-control-plane.config.metricfunc.deploy=true \
+            --set 5g-control-plane.kafka.enabled=true > rendered/sd-core.yaml
+          for chart in 5g-control-plane bess-upf omec-sub-provision; do
+            helm template t "$chart" -f "$VALUES" --set mongodb.password=ci > "rendered/$chart.yaml"
+          done
+
+      - name: Validate with kubeconform
+        run: |
+          kubeconform -strict -summary -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            rendered/*.yaml
+
+      # With global.network set, every Service carries its families, and every
+      # pod with POD_IP also has POD_IPS; in the v4 mode, none of it renders.
+      # The UPF's network attachments stay valid JSON.
+      - name: Check the rendered network settings
+        run: |
+          set -euo pipefail
+          want=$(yq -o=json '.global.network.ipFamilies // [] | join(",")' "$VALUES" | tr -d '"')
+          bad=$(yq -N 'select(.kind == "Service") | .metadata.name + "=" + ((.spec.ipFamilies // []) | join(","))' rendered/sd-core.yaml | grep -v "=${want}\$" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Services without ipFamilies [${want}]: ${bad}"
+            exit 1
+          fi
+          pod_ip=$(grep -c 'fieldPath: status.podIP$' rendered/sd-core.yaml || true)
+          pod_ips=$(grep -c 'fieldPath: status.podIPs$' rendered/sd-core.yaml || true)
+          if [ "$MODE" = v4 ]; then expected=0; else expected=$pod_ip; fi
+          if [ "$pod_ips" != "$expected" ]; then
+            echo "::error::${pod_ip} POD_IP and ${pod_ips} POD_IPS, expected ${expected} POD_IPS"
+            exit 1
+          fi
+          yq -N 'select(.kind == "NetworkAttachmentDefinition") | .spec.config' rendered/sd-core.yaml | jq -e -s 'length == 2' >/dev/null
+          echo "Services: [${want}]; POD_IP ${pod_ip}, POD_IPS ${pod_ips}; network attachments are JSON"
+
+  # The control plane on a kind cluster of the mode. The chart's resources are
+  # checked against the API server, the Services' families as it set them, and
+  # MongoDB must come up. Whether every network function becomes ready is
+  # reported but does not fail the job: that needs images with IPv6 support.
+  kind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [v6, dual-v4, dual-v6]
+    env:
+      VALUES: docs/ipv6/values-${{ matrix.mode }}.yaml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: latest
+
+      # kind is preinstalled on the GitHub-hosted runners.
+      - name: Create cluster and install the MongoDB operator
+        run: |
+          set -euo pipefail
+          kind create cluster --name sdcore-${{ matrix.mode }} --config .github/ipv6/kind-${{ matrix.mode }}.yaml --wait 5m
+          helm repo add mongodb https://mongodb.github.io/helm-charts
+          helm install mongodb-kubernetes mongodb/mongodb-kubernetes \
+            --version 1.14.0 \
+            --namespace sdcore --create-namespace \
+            --set operator.watchNamespace=sdcore \
+            --wait --timeout 5m
+
+      - name: Install the control plane
+        run: |
+          set -euo pipefail
+          helm dependency build sdcore-helm-charts
+          helm install sd-core sdcore-helm-charts --namespace sdcore \
+            -f "$VALUES" -f .github/ipv6/ci-values.yaml \
+            --set 5g-control-plane.mongodb.password=ipv6-ci-only
+
+      - name: Check the Services' families
+        run: |
+          set -euo pipefail
+          want=$(yq -o=json '.global.network.ipFamilies | join(",")' "$VALUES" | tr -d '"')
+          kubectl get svc -n sdcore -l release=sd-core \
+            -o jsonpath='{range .items[*]}{.metadata.name}={.spec.ipFamilies[*]}{"\n"}{end}' | tr ' ' ',' | tee services.txt
+          if grep -v "=${want}\$" services.txt; then
+            echo "::error::Services without ipFamilies [${want}]"
+            exit 1
+          fi
+
+      - name: Wait for MongoDB
+        run: |
+          kubectl -n sdcore wait mongodbcommunity/mongodb \
+            --for=jsonpath='{.status.phase}'=Running --timeout 15m
+
+      - name: Wait for the network functions
+        continue-on-error: true
+        run: kubectl -n sdcore wait pods -l release=sd-core --for=condition=Ready --timeout 10m
+
+      - name: Diagnostics
+        if: always()
+        run: |
+          set +e
+          echo "::group::pods"; kubectl get pods -A -o wide; echo "::endgroup::"
+          echo "::group::services"; kubectl get svc -n sdcore -o wide; echo "::endgroup::"
+          for pod in $(kubectl get pods -n sdcore -o name); do
+            echo "::group::logs $pod"; kubectl logs -n sdcore "$pod" --all-containers --tail=40; echo "::endgroup::"
+          done
+          echo "::group::events"; kubectl get events -n sdcore --sort-by=.lastTimestamp | tail -60; echo "::endgroup::"

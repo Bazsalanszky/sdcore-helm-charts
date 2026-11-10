@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Balázs Toldi
+# SPDX-License-Identifier: Apache-2.0
+# The kind cluster of the IPv6 workflow's dual-v6 job (.github/workflows/ipv6.yml):
+# dual-stack, IPv6 primary: the pod and Service CIDRs list IPv6 first.
+# One node, which also runs the workloads.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: dual
+  podSubnet: "fd00:10:244::/56,10.244.0.0/16"
+  serviceSubnet: "fd00:10:96::/112,10.96.0.0/16"
+nodes:
+  - role: control-plane
