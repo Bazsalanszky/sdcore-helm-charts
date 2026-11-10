@@ -72,10 +72,16 @@ Nothing below renders while `global.network` is empty.
   an IPv6 pod address. bess-init drops outgoing ICMPv6 port unreachable, as it
   does for IPv4. The CNI tuning plugin is chained in `access-net` and
   `core-net` to set `config.upf.ipv6.interfaceSysctls`, by default
-  `accept_ra` 0. That stops a router advertisement on N3 or N6 from adding a
-  default route through `core`, which would take N4 and DNS off `eth0`. The
-  tuning plugin must be installed on the nodes; set `interfaceSysctls: {}` to
-  leave it out.
+  `accept_ra` 0 and IPv4 `forwarding` 0. `accept_ra` 0 stops a router
+  advertisement on N3 or N6 from adding a default route through `core`, which
+  would take N4 and DNS off `eth0`. `forwarding` 0 keeps the pod's kernel from
+  forwarding what BESS already forwards in user space: with AF_PACKET the
+  kernel sees every frame, and a forwarding kernel sends each downlink packet
+  back out of `core`, where BESS tunnels it to the UE a second time. On an
+  IPv6-only cluster the pod has no cluster IPv4 address, so the CNI does not
+  turn IPv4 forwarding off as it does on IPv4 clusters, and the pod inherits
+  the node's `net.ipv4.ip_forward` 1. The tuning plugin must be installed on
+  the nodes; set `interfaceSysctls: {}` to leave it out.
 
 ## Values that take both families
 

@@ -16,7 +16,7 @@ global:
 #   SMF gets pfcp.preferredFamily ipv6, the UPF adapter
 #   UPFADAPTER_PREFERRED_FAMILY ipv6;
 # - MongoDB: additionalMongodConfig net.ipv6 true and net.bindIp "::,0.0.0.0";
-# - the UPF: bessd's gRPC on [::]:10514 and accept_ra 0 on access and core.
+# - the UPF: bessd's gRPC on [::]:10514; accept_ra 0 and IPv4 forwarding 0 on access and core.
 #   N3 and N6 stay on IPv4 (the chart's defaults): the BESS datapath is IPv4.
 
 # 5g-control-plane:
