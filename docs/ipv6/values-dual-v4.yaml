@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 Balázs Toldi
+# SPDX-License-Identifier: Apache-2.0
+
+# Values for the sd-core chart on a dual-stack cluster whose primary family is
+# IPv4: the pod and Service CIDRs list IPv4 first (README.md).
+global:
+  network:
+    ipFamilyPolicy: PreferDualStack
+    ipFamilies: [IPv4, IPv6]
+    preferredFamily: IPv4
+
+# What global.network does in each chart:
+# - every Service: ipFamilyPolicy PreferDualStack, ipFamilies [IPv4, IPv6];
+# - every network function: POD_IPS (both addresses) next to POD_IP (the IPv4
+#   one), and bindingAddr "::" (dual-stack) in each SBI section that does not
+#   set one; the SMF gets pfcp.preferredFamily ipv4;
+# - MongoDB: net.ipv6 true and net.bindIp "::,0.0.0.0", both families; its
+#   clients use IPv4, the family of the operator's single-stack Service;
+# - the UPF: bessd's gRPC on [::]:10514 and accept_ra 0 on access and core.
+
+5g-control-plane:
+  config:
+    # N2 on an address of the node, one per family, e.g.
+    # amf:
+    #   ngapp:
+    #     externalIPs: ["192.0.2.10", "2001:db8:620::10"]
+    smf:
+      cfgFiles:
+        smfcfg.yaml:
+          configuration:
+            pfcp:
+              # Both pod addresses on N4, the Node ID from preferredFamily.
+              # Needs an SMF that reads a list here; older ones want POD_IP.
+              addr: "POD_IPS"
+
+# The UPF's interface values take both families. The BESS datapath carries
+# IPv4 only, so IPv6 addresses on N3 and N6 serve only the kernel side for now:
+# omec-user-plane:
+#   config:
+#     upf:
+#       access:
+#         ips: ["192.168.252.3/24", "2001:db8:252::3/64"]
+#         gateways: {ipv4: 192.168.252.1, ipv6: "2001:db8:252::1"}
+#       core:
+#         ips: ["192.168.250.3/24", "2001:db8:250::3/64"]
+#         gateways: {ipv4: 192.168.250.1, ipv6: "2001:db8:250::1"}
+#         # Opt-in, and above the metric of the pod's IPv6 default route on
+#         # eth0 (usually 1024).
+#         defaultRouteMetric: {ipv6: 2048}

@@ -10,6 +10,7 @@
 {{- $nrfcfg := index .Values.config.nrf.cfgFiles "nrfcfg.yaml" }}
 {{- $config := index $nrfcfg "configuration" }}
 {{- $sbi := index $config "sbi" }}
+{{- tuple $sbi . | include "5g-control-plane.sbi_defaults" }}
 
 {{- if not (hasKey $config "mongodb") -}}
 {{- $_ := dict "name" .Values.config.mongodb.name "url" (include "5g-control-plane.mongodbUrl" .) | set $config "mongodb" -}}

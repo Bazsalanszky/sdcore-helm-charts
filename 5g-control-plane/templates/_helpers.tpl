@@ -635,3 +635,191 @@ Usage: {{- tuple "<nf>" . | include "5g-control-plane.certs_volumes" | nindent 6
     path: {{ $context.Values.config.coreDump.path }}
 {{- end }}
 {{- end -}}
+
+{{/*
+IPv6 and dual-stack, opt-in through global.network (see values.yaml). Every
+helper below renders nothing while global.network is unset, so an IPv4
+deployment gets the same manifests as before the block existed. The same
+helpers, with their own prefix, are in bess-upf and omec-sub-provision.
+
+"5g-control-plane.network" returns global.network, validated, as YAML: use it
+with fromYaml.
+*/}}
+{{- define "5g-control-plane.network" -}}
+{{- $global := .Values.global | default dict -}}
+{{- $network := get $global "network" | default dict -}}
+{{- $policy := get $network "ipFamilyPolicy" | default "" -}}
+{{- $families := get $network "ipFamilies" | default list -}}
+{{- $preferred := get $network "preferredFamily" | default "" -}}
+{{- if not (has $policy (list "" "SingleStack" "PreferDualStack" "RequireDualStack")) -}}
+{{- fail (printf "global.network.ipFamilyPolicy is %q, expected SingleStack, PreferDualStack or RequireDualStack" $policy) -}}
+{{- end -}}
+{{- if not (kindIs "slice" $families) -}}
+{{- fail "global.network.ipFamilies must be a list, such as [IPv6] or [IPv4, IPv6]" -}}
+{{- end -}}
+{{- if or (gt (len $families) 2) (ne (len $families) (len (uniq $families))) -}}
+{{- fail (printf "global.network.ipFamilies is %v, expected one or two distinct families" $families) -}}
+{{- end -}}
+{{- range $families -}}
+{{- if not (has . (list "IPv4" "IPv6")) -}}
+{{- fail (printf "global.network.ipFamilies contains %q, expected IPv4 or IPv6" .) -}}
+{{- end -}}
+{{- end -}}
+{{- if and (eq $policy "SingleStack") (gt (len $families) 1) -}}
+{{- fail "global.network.ipFamilyPolicy SingleStack takes a single entry in global.network.ipFamilies" -}}
+{{- end -}}
+{{- if not (has $preferred (list "" "IPv4" "IPv6")) -}}
+{{- fail (printf "global.network.preferredFamily is %q, expected IPv4 or IPv6" $preferred) -}}
+{{- end -}}
+{{- if and $preferred $families (not (has $preferred $families)) -}}
+{{- fail (printf "global.network.preferredFamily %s is not in global.network.ipFamilies %v" $preferred $families) -}}
+{{- end -}}
+{{- toYaml (dict "ipFamilyPolicy" $policy "ipFamilies" $families "preferredFamily" $preferred) -}}
+{{- end -}}
+
+{{/*
+"true" when global.network sets anything, empty otherwise.
+*/}}
+{{- define "5g-control-plane.network_enabled" -}}
+{{- $network := include "5g-control-plane.network" . | fromYaml -}}
+{{- if or $network.ipFamilyPolicy $network.ipFamilies $network.preferredFamily -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+"true" when the deployment uses IPv6: IPv6 is in global.network.ipFamilies or
+is global.network.preferredFamily.
+*/}}
+{{- define "5g-control-plane.ipv6_enabled" -}}
+{{- $network := include "5g-control-plane.network" . | fromYaml -}}
+{{- if or (has "IPv6" $network.ipFamilies) (eq $network.preferredFamily "IPv6") -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+The primary family, that of the Services and of POD_IP: the first entry of
+global.network.ipFamilies, else global.network.preferredFamily, else empty.
+*/}}
+{{- define "5g-control-plane.primary_family" -}}
+{{- $network := include "5g-control-plane.network" . | fromYaml -}}
+{{- if $network.ipFamilies -}}
+{{- first $network.ipFamilies -}}
+{{- else -}}
+{{- $network.preferredFamily -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The family of the fields that hold a single address: global.network.preferredFamily,
+else the primary family, else empty.
+*/}}
+{{- define "5g-control-plane.preferred_family" -}}
+{{- $network := include "5g-control-plane.network" . | fromYaml -}}
+{{- $network.preferredFamily | default (include "5g-control-plane.primary_family" .) -}}
+{{- end -}}
+
+{{/*
+The ipFamilyPolicy and ipFamilies fields of a Service spec, each only when set
+in global.network, on new lines at the given indent.
+Usage: {{- tuple 2 . | include "5g-control-plane.service_ip_families" }}
+*/}}
+{{- define "5g-control-plane.service_ip_families" -}}
+{{- $indent := index . 0 -}}
+{{- $network := include "5g-control-plane.network" (index . 1) | fromYaml -}}
+{{- $lines := list -}}
+{{- with $network.ipFamilyPolicy -}}
+{{- $lines = append $lines (printf "ipFamilyPolicy: %s" .) -}}
+{{- end -}}
+{{- with $network.ipFamilies -}}
+{{- $lines = append $lines "ipFamilies:" -}}
+{{- range . -}}
+{{- $lines = append $lines (printf "  - %s" .) -}}
+{{- end -}}
+{{- end -}}
+{{- if $lines -}}
+{{- join "\n" $lines | nindent $indent -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The externalIPs field of a Service spec, from a scalar externalIp (kept for
+existing values) and a list externalIPs, e.g. one address per family. Nothing
+when neither is set.
+Usage: {{- tuple 2 .Values.config.<nf>.externalIp .Values.config.<nf>.externalIPs | include "5g-control-plane.external_ips" }}
+*/}}
+{{- define "5g-control-plane.external_ips" -}}
+{{- $indent := index . 0 -}}
+{{- $ips := list -}}
+{{- with index . 1 -}}
+{{- $ips = append $ips . -}}
+{{- end -}}
+{{- range (index . 2 | default list) -}}
+{{- $ips = append $ips . -}}
+{{- end -}}
+{{- if $ips -}}
+{{- $lines := list "externalIPs:" -}}
+{{- range uniq $ips -}}
+{{- $lines = append $lines (printf "  - %v" .) -}}
+{{- end -}}
+{{- join "\n" $lines | nindent $indent -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+POD_IPS, every address of the pod (status.podIPs, comma-separated), next to
+POD_IP (status.podIP, the primary family only). Only when global.network is
+set, on new lines at the given indent.
+Usage: {{- tuple 8 . | include "5g-control-plane.pod_ips_env" }}
+*/}}
+{{- define "5g-control-plane.pod_ips_env" -}}
+{{- $indent := index . 0 -}}
+{{- if include "5g-control-plane.network_enabled" (index . 1) -}}
+{{- list "- name: POD_IPS" "  valueFrom:" "    fieldRef:" "      fieldPath: status.podIPs" | join "\n" | nindent $indent -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Fills in the family-neutral SBI binding address of a network function: with
+IPv6 enabled, an sbi section that does not set bindingAddr gets "::", which
+the functions bind dual-stack. bindingIPv4 stays as it is, as the alias older
+images read. registerIPv6 and bindingAddr set in cfgFiles are kept; nothing
+changes without IPv6.
+Usage: {{- tuple $sbi . | include "5g-control-plane.sbi_defaults" }}
+*/}}
+{{- define "5g-control-plane.sbi_defaults" -}}
+{{- $sbi := index . 0 -}}
+{{- if and (include "5g-control-plane.ipv6_enabled" (index . 1)) (not (hasKey $sbi "bindingAddr")) -}}
+{{- $_ := set $sbi "bindingAddr" "::" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The additionalMongodConfig of the MongoDBCommunity resource, as YAML (empty
+when there is none): mongodb.additionalMongodConfig, over the IPv6 settings
+when mongod serves IPv6.
+mongodb.ipv6 decides: true or false, or unset to follow global.network, which
+turns IPv6 on when the deployment uses IPv6 (see ipv6_enabled). mongod then
+binds "::" and "0.0.0.0" with net.ipv6: MongoDB's automation agent ignores
+net.bindIpAll (mongodb/mongodb-kubernetes#1191), and "::" alone is IPv6-only,
+which would shut out the IPv4 clients of a cluster whose primary family, and
+so that of the operator's single-stack Service, is IPv4.
+*/}}
+{{- define "5g-control-plane.mongod_config" -}}
+{{- $m := .Values.mongodb -}}
+{{- $ipv6 := eq (include "5g-control-plane.ipv6_enabled" .) "true" -}}
+{{- if kindIs "bool" $m.ipv6 -}}
+{{- $ipv6 = $m.ipv6 -}}
+{{- end -}}
+{{- $config := dict -}}
+{{- if $ipv6 -}}
+{{- $config = dict "net" (dict "ipv6" true "bindIp" "::,0.0.0.0") -}}
+{{- end -}}
+{{- with $m.additionalMongodConfig -}}
+{{- $config = mergeOverwrite $config (deepCopy .) -}}
+{{- end -}}
+{{- if $config -}}
+{{- toYaml $config -}}
+{{- end -}}
+{{- end -}}

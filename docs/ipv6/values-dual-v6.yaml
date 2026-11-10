@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Balázs Toldi
+# SPDX-License-Identifier: Apache-2.0
+
+# Values for the sd-core chart on a dual-stack cluster whose primary family is
+# IPv6: the pod and Service CIDRs list IPv6 first (README.md).
+global:
+  network:
+    ipFamilyPolicy: PreferDualStack
+    ipFamilies: [IPv6, IPv4]
+    preferredFamily: IPv6
+
+# As values-dual-v4.yaml with the families swapped: the network functions,
+# and MongoDB's clients through the operator's single-stack Service, use IPv6
+# first.
+
+5g-control-plane:
+  config:
+    # N2 on an address of the node, one per family, e.g.
+    # amf:
+    #   ngapp:
+    #     externalIPs: ["2001:db8:620::10", "192.0.2.10"]
+    smf:
+      cfgFiles:
+        smfcfg.yaml:
+          configuration:
+            pfcp:
+              # Both pod addresses on N4, the Node ID from preferredFamily.
+              # Needs an SMF that reads a list here; older ones want POD_IP.
+              addr: "POD_IPS"

@@ -9,6 +9,7 @@
 {{- if not .Values.config.useExistingConfigMap -}}
 {{- $udmcfg := index .Values.config.udm.cfgFiles "udmcfg.yaml" }}
 {{- $sbi := index $udmcfg.configuration "sbi" }}
+{{- tuple $sbi . | include "5g-control-plane.sbi_defaults" }}
 
 {{- if not (hasKey $udmcfg "logger") -}}
 {{- $_ := .Values.config.logger | set $udmcfg "logger" -}}

@@ -15,10 +15,8 @@ metadata:
 {{ tuple "nrf" . | include "5g-control-plane.metadata_labels" | indent 4 }}
 spec:
   type: {{ .Values.config.nrf.serviceType }}
-{{- if .Values.config.nrf.externalIp }}
-  externalIPs:
-    - {{ .Values.config.nrf.externalIp }}
-{{- end }}
+{{- tuple 2 . | include "5g-control-plane.service_ip_families" }}
+{{- tuple 2 .Values.config.nrf.externalIp .Values.config.nrf.externalIPs | include "5g-control-plane.external_ips" }}
   selector:
 {{ tuple "nrf" . | include "5g-control-plane.metadata_labels" | indent 4 }}
   ports:

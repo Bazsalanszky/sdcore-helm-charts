@@ -25,6 +25,8 @@ The control plane's Kafka is not deployed by default. Set `5g-control-plane.kafk
 
 The chart no longer deploys the Bitnami MongoDB and Kafka subcharts. MongoDB runs through the MongoDB Kubernetes operator by default (set `5g-control-plane.mongodb.password`), which is another cluster prerequisite. Alternatively, set `mongodb.enabled=false` and point `5g-control-plane.config.mongodb.url` and `authUrl` at an external MongoDB.
 
+On IPv6-only and dual-stack clusters, set `global.network` (Service IP families, `POD_IPS`, the network functions' bind address, MongoDB and UPF settings); see [docs/ipv6](docs/ipv6/README.md) for the values of each cluster mode. While it is unset, the charts render the same manifests as on an IPv4 cluster.
+
 ## Versioning
 
 All charts in this repository share one version, taken from the `VERSION` file

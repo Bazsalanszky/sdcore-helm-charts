@@ -99,3 +99,89 @@ readinessProbe:
 {{- toYaml (omit $probes.readiness "enabled") | nindent 2 }}
 {{- end }}
 {{- end -}}
+
+{{/*
+IPv6 and dual-stack, opt-in through global.network (see values.yaml); the same
+helpers as in 5g-control-plane. Every helper below renders nothing while
+global.network is unset.
+
+"omec-sub-provision.network" returns global.network, validated, as YAML: use it
+with fromYaml.
+*/}}
+{{- define "omec-sub-provision.network" -}}
+{{- $global := .Values.global | default dict -}}
+{{- $network := get $global "network" | default dict -}}
+{{- $policy := get $network "ipFamilyPolicy" | default "" -}}
+{{- $families := get $network "ipFamilies" | default list -}}
+{{- $preferred := get $network "preferredFamily" | default "" -}}
+{{- if not (has $policy (list "" "SingleStack" "PreferDualStack" "RequireDualStack")) -}}
+{{- fail (printf "global.network.ipFamilyPolicy is %q, expected SingleStack, PreferDualStack or RequireDualStack" $policy) -}}
+{{- end -}}
+{{- if not (kindIs "slice" $families) -}}
+{{- fail "global.network.ipFamilies must be a list, such as [IPv6] or [IPv4, IPv6]" -}}
+{{- end -}}
+{{- if or (gt (len $families) 2) (ne (len $families) (len (uniq $families))) -}}
+{{- fail (printf "global.network.ipFamilies is %v, expected one or two distinct families" $families) -}}
+{{- end -}}
+{{- range $families -}}
+{{- if not (has . (list "IPv4" "IPv6")) -}}
+{{- fail (printf "global.network.ipFamilies contains %q, expected IPv4 or IPv6" .) -}}
+{{- end -}}
+{{- end -}}
+{{- if and (eq $policy "SingleStack") (gt (len $families) 1) -}}
+{{- fail "global.network.ipFamilyPolicy SingleStack takes a single entry in global.network.ipFamilies" -}}
+{{- end -}}
+{{- if not (has $preferred (list "" "IPv4" "IPv6")) -}}
+{{- fail (printf "global.network.preferredFamily is %q, expected IPv4 or IPv6" $preferred) -}}
+{{- end -}}
+{{- if and $preferred $families (not (has $preferred $families)) -}}
+{{- fail (printf "global.network.preferredFamily %s is not in global.network.ipFamilies %v" $preferred $families) -}}
+{{- end -}}
+{{- toYaml (dict "ipFamilyPolicy" $policy "ipFamilies" $families "preferredFamily" $preferred) -}}
+{{- end -}}
+
+{{/*
+"true" when global.network sets anything, empty otherwise.
+*/}}
+{{- define "omec-sub-provision.network_enabled" -}}
+{{- $network := include "omec-sub-provision.network" . | fromYaml -}}
+{{- if or $network.ipFamilyPolicy $network.ipFamilies $network.preferredFamily -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+The ipFamilyPolicy and ipFamilies fields of a Service spec, each only when set
+in global.network, on new lines at the given indent.
+Usage: {{- tuple 2 . | include "omec-sub-provision.service_ip_families" }}
+*/}}
+{{- define "omec-sub-provision.service_ip_families" -}}
+{{- $indent := index . 0 -}}
+{{- $network := include "omec-sub-provision.network" (index . 1) | fromYaml -}}
+{{- $lines := list -}}
+{{- with $network.ipFamilyPolicy -}}
+{{- $lines = append $lines (printf "ipFamilyPolicy: %s" .) -}}
+{{- end -}}
+{{- with $network.ipFamilies -}}
+{{- $lines = append $lines "ipFamilies:" -}}
+{{- range . -}}
+{{- $lines = append $lines (printf "  - %s" .) -}}
+{{- end -}}
+{{- end -}}
+{{- if $lines -}}
+{{- join "\n" $lines | nindent $indent -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+POD_IPS, every address of the pod (status.podIPs, comma-separated), next to
+POD_IP (status.podIP, the primary family only). Only when global.network is
+set, on new lines at the given indent.
+Usage: {{- tuple 8 . | include "omec-sub-provision.pod_ips_env" }}
+*/}}
+{{- define "omec-sub-provision.pod_ips_env" -}}
+{{- $indent := index . 0 -}}
+{{- if include "omec-sub-provision.network_enabled" (index . 1) -}}
+{{- list "- name: POD_IPS" "  valueFrom:" "    fieldRef:" "      fieldPath: status.podIPs" | join "\n" | nindent $indent -}}
+{{- end -}}
+{{- end -}}

@@ -2,6 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# IPv6 and dual-stack, opt-in; see 5g-control-plane's values.yaml. While it is
+# empty the chart renders what it renders for an IPv4 cluster. Here it sets
+# ipFamilyPolicy and ipFamilies on the Services and adds POD_IPS to simapp.
+global:
+  network: {}
+
 images:
   repository: "ghcr.io/omec-project/" # default GitHub Registry
   tags:
@@ -133,6 +139,13 @@ config:
                 dns-primary: "8.8.8.8"
                 mtu: 1460
                 ue-ip-pool: "192.168.100.0/24"
+                # IPv6 for the IPv6 and IPv4v6 PDU sessions of this DNN. These keys are
+                # forward-looking: today's simapp and webconsole (nfConfig) have no IPv6
+                # fields and ignore them; they are rendered only when set.
+                #ue-ipv6-pool: "2001:db8:100::/48" # one prefix per session, ue-ipv6-prefix-len long
+                #ue-ipv6-prefix-len: 64
+                #dns-primary-v6: "2001:4860:4860::8888"
+                #pcscf-v6: "2001:db8:1::10"
                 ue-dnn-qos:
                   dnn-mbr-downlink: 5
                   dnn-mbr-uplink: 2

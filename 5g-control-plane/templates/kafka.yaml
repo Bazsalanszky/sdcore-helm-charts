@@ -56,6 +56,7 @@ metadata:
   labels:
 {{ tuple "kafka" . | include "5g-control-plane.metadata_labels" | indent 4 }}
 spec:
+{{- tuple 2 . | include "5g-control-plane.service_ip_families" }}
   selector:
     strimzi.io/cluster: {{ $k.name }}
     strimzi.io/name: {{ $k.name }}-kafka

@@ -9,6 +9,7 @@
 {{- if not .Values.config.useExistingConfigMap -}}
 {{- $pcfcfg := index .Values.config.pcf.cfgFiles "pcfcfg.yaml" }}
 {{- $sbi := index $pcfcfg.configuration "sbi" }}
+{{- tuple $sbi . | include "5g-control-plane.sbi_defaults" }}
 {{- $config := index $pcfcfg "configuration" }}
 
 {{- if not (hasKey $pcfcfg "logger") -}}

@@ -9,6 +9,7 @@
 {{- if not .Values.config.useExistingConfigMap -}}
 {{- $nssfcfg := index .Values.config.nssf.cfgFiles "nssfcfg.yaml" }}
 {{- $sbi := index $nssfcfg.configuration "sbi" }}
+{{- tuple $sbi . | include "5g-control-plane.sbi_defaults" }}
 
 {{- if not (hasKey $nssfcfg "logger") -}}
 {{- $_ := .Values.config.logger | set $nssfcfg "logger" -}}

@@ -85,5 +85,5 @@ else
     bess_args+=("--allow=${allow_list}")
 fi
 
-bess_args+=(--grpc_url=0.0.0.0:10514)
+bess_args+=(--grpc_url={{ if include "omec-user-plane.ipv6_enabled" . }}[::]{{ else }}0.0.0.0{{ end }}:10514)
 exec "${bess_args[@]}"

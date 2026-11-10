@@ -9,6 +9,7 @@
 {{- if not .Values.config.useExistingConfigMap -}}
 {{- $ausfcfg := index .Values.config.ausf.cfgFiles "ausfcfg.yaml" }}
 {{- $sbi := index $ausfcfg.configuration "sbi" }}
+{{- tuple $sbi . | include "5g-control-plane.sbi_defaults" }}
 
 {{- if not (hasKey $ausfcfg "logger") -}}
 {{- $_ := .Values.config.logger | set $ausfcfg "logger" -}}

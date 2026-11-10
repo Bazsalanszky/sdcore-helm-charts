@@ -8,6 +8,9 @@
 {{- $accessConfig := index $upfConfig "access" }}
 {{- $coreConfig := index $upfConfig "core" }}
 {{- $upfMode := index $upfConfig "mode" }}
+{{- $ipv6 := include "omec-user-plane.ipv6_enabled" . }}
+{{- $accessGw6 := tuple .Values.config.upf.access "ipv6" | include "omec-user-plane.gateway" }}
+{{- $coreGw6 := tuple .Values.config.upf.core "ipv6" | include "omec-user-plane.gateway" }}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -34,7 +37,7 @@ spec:
           {{- if hasKey .Values.config.upf.access "mac" }}
             "mac": {{ .Values.config.upf.access.mac | quote }},
           {{- end }}
-            "ips": [{{ .Values.config.upf.access.ip | quote }}]
+            "ips": [{{ include "omec-user-plane.interface_ips" .Values.config.upf.access }}]
           },
           {
             "name": "core-net",
@@ -42,7 +45,7 @@ spec:
           {{- if hasKey .Values.config.upf.core "mac" }}
             "mac": {{ .Values.config.upf.core.mac | quote }},
           {{- end }}
-            "ips": [{{ .Values.config.upf.core.ip | quote }}]
+            "ips": [{{ include "omec-user-plane.interface_ips" .Values.config.upf.core }}]
           }
         ]'
     spec:
@@ -61,12 +64,14 @@ spec:
         imagePullPolicy: {{ .Values.images.pullPolicy }}
         command: ["sh", "-xec"]
         args:
-        - ip route replace {{ .Values.config.upf.ran.subnet }} via {{ .Values.config.upf.access.gateway }};
-          ip route replace default via {{ .Values.config.upf.core.gateway }} metric 110;
+        - {{ include "omec-user-plane.init_routes" . | replace "\n" "\n          " }}
           {{- range .Values.config.upf.routes }}
           ip route replace {{ .to }} via {{ .via }};
           {{- end }}
           iptables -I OUTPUT -p icmp --icmp-type port-unreachable -j DROP;
+          {{- if $ipv6 }}
+          if command -v ip6tables >/dev/null 2>&1; then ip6tables -I OUTPUT -p ipv6-icmp --icmpv6-type port-unreachable -j DROP; else echo ip6tables not found, ICMPv6 port unreachable not dropped; fi;
+          {{- end }}
         securityContext:
           capabilities:
             add:
@@ -227,8 +232,14 @@ spec:
               # arping does not work - BESS graph is still disconnected
               #arping -c 2 -I {{ index $accessConfig "ifname" }} {{ .Values.config.upf.access.gateway }}
               #arping -c 2 -I {{ index $coreConfig "ifname" }} {{ .Values.config.upf.core.gateway }}
-              ping -c 2 {{ .Values.config.upf.access.gateway }}
-              ping -c 2 {{ .Values.config.upf.core.gateway }}
+              ping -c 2 {{ tuple .Values.config.upf.access "ipv4" | include "omec-user-plane.gateway" }}
+              ping -c 2 {{ tuple .Values.config.upf.core "ipv4" | include "omec-user-plane.gateway" }}
+              {{- with $accessGw6 }}
+              ping -c 2 -I {{ index $accessConfig "ifname" }} {{ . }}
+              {{- end }}
+              {{- with $coreGw6 }}
+              ping -c 2 -I {{ index $coreConfig "ifname" }} {{ . }}
+              {{- end }}
               sleep {{ .Values.config.gratuitousArp.interval }}
             done
         resources:

@@ -67,6 +67,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+{{- tuple 8 . | include "omec-sub-provision.pod_ips_env" }}
         {{- tuple .Values.config.simapp.config.port . | include "omec-sub-provision.probes" | nindent 8 }}
       {{- if .Values.resources.enabled }}
         resources:

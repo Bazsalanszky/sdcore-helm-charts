@@ -19,6 +19,7 @@ metadata:
 {{- end }}
 spec:
   type: {{ .Values.config.webui.serviceType }}
+{{- tuple 2 . | include "5g-control-plane.service_ip_families" }}
   selector:
 {{ tuple "webui" . | include "5g-control-plane.metadata_labels" | indent 4 }}
   ports:
