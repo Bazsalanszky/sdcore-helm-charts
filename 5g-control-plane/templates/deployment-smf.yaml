@@ -71,6 +71,13 @@ spec:
             fieldRef:
               fieldPath: status.podIP
 {{- tuple 8 . | include "5g-control-plane.pod_ips_env" }}
+      {{- $gtpu := .Values.config.smf.gtpu | default dict }}
+      {{- if $gtpu.enabled }}
+        ports:
+        - name: gtpu
+          containerPort: {{ $gtpu.port | default 2152 }}
+          protocol: UDP
+      {{- end }}
         {{- tuple .Values.config.smf.sbi.port . | include "5g-control-plane.probes" | nindent 8 }}
       {{- if .Values.resources.enabled }}
         resources:

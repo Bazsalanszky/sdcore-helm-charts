@@ -31,6 +31,15 @@
 {{- $_ := lower $preferredFamily | set $pfcp "preferredFamily" -}}
 {{- $_ := set $smfcfg.configuration "pfcp" $pfcp -}}
 {{- end }}
+{{- $gtpu := .Values.config.smf.gtpu | default dict }}
+{{- if and $gtpu.enabled (not (hasKey $smfcfg.configuration "cpGtpu")) -}}
+{{- $cpGtpu := dict "port" ($gtpu.port | default 2152 | int) -}}
+{{- $_ := set $cpGtpu "addr" ($gtpu.addr | default (ternary "POD_IPS" "POD_IP" (not (empty (include "5g-control-plane.network_enabled" .))))) -}}
+{{- if $preferredFamily -}}
+{{- $_ := lower $preferredFamily | set $cpGtpu "preferredFamily" -}}
+{{- end -}}
+{{- $_ := set $smfcfg.configuration "cpGtpu" $cpGtpu -}}
+{{- end }}
 {{- if not (hasKey $smfcfg.configuration.kafkaInfo "enableKafka") -}}
 {{- $_ := .Values.kafka.enabled | set $smfcfg.configuration.kafkaInfo "enableKafka" -}}
 {{- end }}
