@@ -870,6 +870,19 @@ config:
     sbi:
       port: 29502
       #nodePort: 30080
+    # The SMF's own GTP-U endpoint, for SMF images with router advertisement
+    # support: it answers the router solicitations of IPv6 PDU sessions and sends
+    # their router advertisements, through the UPF (TS 29.244 clause 5.3). Without
+    # it an IPv6 UE never learns its prefix. Enabled, it fills in cpGtpu in
+    # smfcfg.yaml unless cfgFiles sets it, and opens the UDP port on the pod.
+    # The UPFs send router solicitations to cpGtpu.addr, so it must be reachable
+    # from their N3 sockets, in a family they have one in: the pod address (by
+    # default POD_IPS with global.network, else POD_IP), or the address of an N3
+    # attachment given through podAnnotations (k8s.v1.cni.cncf.io/networks).
+    gtpu:
+      enabled: false
+      port: 2152
+      # addr: "POD_IPS"
     cfgFiles:
       # https://github.com/omec-project/smf/blob/main/config/uerouting.yaml
       uerouting.yaml:
@@ -907,6 +920,13 @@ config:
           # UPF's addresses).
           # upfTransportFamily:
           #   upf.example.org: ipv6
+          # Optional: the SMF's GTP-U endpoint (see config.smf.gtpu, which fills it
+          # in): addr, one address or one per family, or the name of an environment
+          # variable holding them; preferredFamily, ipv4 or ipv6, the family router
+          # advertisements are sent in when the UPF gave both (it follows
+          # global.network); port, by default 2152.
+          # cpGtpu:
+          #   addr: "POD_IPS"
           smfName: SMF
           nrfUri: https://nrf:29510
           webuiUri: http://webui:5001

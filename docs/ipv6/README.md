@@ -104,6 +104,27 @@ These work in every mode, and nothing renders while they are unset:
   `dns-primary-v6` and `pcscf-v6` are reserved for IPv6 PDU sessions. Today's
   simapp and webconsole ignore them.
 
+## Router advertisements for IPv6 PDU sessions
+
+A UE of an IPv6 PDU session learns its prefix only from a router
+advertisement, which the SMF sends through the UPF over its own GTP-U endpoint
+(TS 23.501 clause 5.8.2.2.2, TS 29.244 clause 5.3). `config.smf.gtpu.enabled:
+true` turns it on, in any mode, for SMF images that support it:
+
+- `smfcfg.yaml` gets `cpGtpu` unless `cfgFiles` sets it: `addr` is `POD_IPS`
+  with `global.network` and `POD_IP` without, or `config.smf.gtpu.addr`;
+  `preferredFamily` follows `global.network`; `port` is `config.smf.gtpu.port`
+  (2152).
+- The SMF container declares the UDP port.
+
+No Service is added: the SMF tells each UPF the address itself, in the rule
+that forwards router solicitations to it, so the address must be reachable
+from the UPF's N3 socket. When the pod network does not route there, attach
+the SMF to the N3 network through `config.smf.podAnnotations`
+(`k8s.v1.cni.cncf.io/networks`) and set `config.smf.gtpu.addr` to that
+attachment's address. The UPF has to support the CP-function source and
+destination interfaces; the BESS UPF does not.
+
 ## Limits
 
 - The BESS datapath carries IPv4 only: N3 and N6 stay on IPv4.
