@@ -145,7 +145,7 @@ config:
                 #ue-ipv6-pool: "2001:db8:100::/48" # one prefix per session, ue-ipv6-prefix-len long
                 #ue-ipv6-prefix-len: 64
                 #dns-primary-v6: "2001:4860:4860::8888"
-                #pcscf-v6: "2001:db8:1::10"
+                #pcscf-primary-v6: "2001:db8:1::10"
                 ue-dnn-qos:
                   dnn-mbr-downlink: 5
                   dnn-mbr-uplink: 2
