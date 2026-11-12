@@ -190,10 +190,20 @@ config:
           appQERLookup: 200000
           sessionQERLookup: 100000
           farLookup: 150000
+        # GTP-U addresses: the interface's own (its first IPv4 address and first
+        # global IPv6 one, from access.ips/core.ips) unless ipv4/ipv6 name them.
+        # transport_family restricts N3 to one family: "ipv4" ignores the IPv6
+        # address altogether, "ipv6" offers only IPv6 F-TEIDs (and sends to the
+        # IPv6 address of an Outer Header Creation that carries both). Empty, the
+        # UPF offers what it has, and the SMF picks the family (upfTransportFamily).
         access:
           ifname: access
+          #ipv4: 192.168.252.3
+          #ipv6: 2001:db8:252::3
+          #transport_family: ""
         core:
           ifname: core
+          #ipv6: 2001:db8:250::3
         measure_upf: true
         measure_flow: false
         enable_notify_bess: true
