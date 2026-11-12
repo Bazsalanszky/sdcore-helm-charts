@@ -115,13 +115,26 @@ config:
     #     copy leaves through eth0 instead and is not duplicated, but it still
     #     leaks into the pod network. Whether the pod's kernel forwards is up
     #     to the CNI (Calico: containerIPForwarding), so it is set here.
-    #   Set it to {} to leave the networks as they are (no tuning plugin on the
-    #   nodes, say).
+    #   - IPv6 forwarding 0 in the pod (net.ipv6.conf.all.forwarding), for the
+    #     same reason, once IPv6 UE or N3/N9 traffic reaches the pod. Rendered
+    #     only when the UPF has an IPv6 address on access or core (ips/ip);
+    #     with one, the tuning plugin is chained even on an IPv4 cluster,
+    #     unless enabled is false. It is "all" and not IFNAME because the
+    #     kernel forwards IPv6 when all.forwarding is 1, whatever the
+    #     interfaces' own forwarding says. Writing "all" also sets "default"
+    #     and every interface in the pod's network namespace (eth0 too: the
+    #     pod does not forward on the pod network either). The CNI may leave it
+    #     at 1: it was 1 on a dual-stack k3s + Calico cluster.
+    #   Override a default by setting the key ("1" keeps IPv6 forwarding on),
+    #   drop one by setting it to null, or set interfaceSysctls to null to
+    #   leave the networks as they are (no tuning plugin on the nodes, say).
+    #   An empty map ({}) does not drop the defaults: Helm merges it with them.
     ipv6:
       # enabled: true
       interfaceSysctls:
         net.ipv6.conf.IFNAME.accept_ra: "0"
         net.ipv4.conf.IFNAME.forwarding: "0"
+        net.ipv6.conf.all.forwarding: "0"
     # Dynamic IP allocation is not supported yet
     # Custom routes inside UPF; IPv6 ones too.
     #routes:

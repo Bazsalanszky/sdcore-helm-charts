@@ -304,15 +304,46 @@ every other pod-network destination off a route on eth0 through core.
 {{- end -}}
 
 {{/*
+"true" when the UPF has an IPv6 address on access or core (config.upf.access
+or config.upf.core ips, or the older scalar ip); empty otherwise.
+Usage: {{ include "omec-user-plane.has_ipv6_address" . }}
+*/}}
+{{- define "omec-user-plane.has_ipv6_address" -}}
+{{- $found := false -}}
+{{- range (list .Values.config.upf.access .Values.config.upf.core) -}}
+{{- range (.ips | default (list .ip)) -}}
+{{- if and . (contains ":" (toString .)) -}}
+{{- $found = true -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if $found }}true{{ end -}}
+{{- end -}}
+
+{{/*
 The CNI plugins chained after the access or core interface's own plugin: the
-tuning plugin, setting config.upf.ipv6.interfaceSysctls on the interface,
-when the pod uses IPv6. Empty otherwise.
+tuning plugin, setting config.upf.ipv6.interfaceSysctls on the interface. It
+is chained when the pod uses IPv6, or when the UPF has an IPv6 address on
+access or core (unless config.upf.ipv6.enabled is false). Empty otherwise.
+
+net.ipv6.conf.all.forwarding, in the default interfaceSysctls, is kept only
+when the UPF has an IPv6 address: IPv6 forwarding in the pod matters only then,
+and a UPF without one renders as before. A key set to null is left out, so one
+default can be dropped without restating the others.
 Usage: {{ include "omec-user-plane.tuning_plugin" . }}
 */}}
 {{- define "omec-user-plane.tuning_plugin" -}}
-{{- if include "omec-user-plane.ipv6_enabled" . -}}
 {{- $ipv6 := .Values.config.upf.ipv6 | default dict -}}
-{{- with $ipv6.interfaceSysctls -}}
+{{- $address6 := include "omec-user-plane.has_ipv6_address" . -}}
+{{- $optedOut := and (kindIs "bool" $ipv6.enabled) (not $ipv6.enabled) -}}
+{{- if or (include "omec-user-plane.ipv6_enabled" .) (and $address6 (not $optedOut)) -}}
+{{- $sysctls := dict -}}
+{{- range $key, $value := ($ipv6.interfaceSysctls | default dict) -}}
+{{- if and (not (kindIs "invalid" $value)) (or $address6 (ne $key "net.ipv6.conf.all.forwarding")) -}}
+{{- $_ := set $sysctls $key $value -}}
+{{- end -}}
+{{- end -}}
+{{- with $sysctls -}}
 {{- dict "type" "tuning" "sysctl" . | toJson -}}
 {{- end -}}
 {{- end -}}
