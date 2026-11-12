@@ -101,8 +101,8 @@ These work in every mode, and nothing renders while they are unset:
   route is added only when `defaultRouteMetric.ipv6` is set. Keep that metric
   above that of the pod's IPv6 default route on `eth0`, usually 1024.
 - omec-sub-provision `ip-domains`: `ue-ipv6-pool`, `ue-ipv6-prefix-len`,
-  `dns-primary-v6` and `pcscf-v6` are reserved for IPv6 PDU sessions. Today's
-  simapp and webconsole ignore them.
+  `dns-primary-v6` and `pcscf-primary-v6` configure IPv6 PDU sessions. They
+  need a simapp and a webconsole that know these keys; older ones drop them.
 
 ## Router advertisements for IPv6 PDU sessions
 
