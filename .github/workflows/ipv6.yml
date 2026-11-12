@@ -83,6 +83,9 @@ jobs:
           for chart in 5g-control-plane bess-upf omec-sub-provision; do
             helm template t "$chart" -f "$VALUES" --set mongodb.password=ci > "rendered/$chart.yaml"
           done
+          # The UPF with an IPv6 address on core (the mode's values have none).
+          helm template t bess-upf -f "$VALUES" \
+            --set-json 'config.upf.core.ips=["192.168.250.3/24","2001:db8:250::3/64"]' > rendered/bess-upf-core6.yaml
 
       - name: Validate with kubeconform
         run: |
@@ -122,7 +125,20 @@ jobs:
             echo "::error::${tuned} UPF network attachments with accept_ra 0 and forwarding 0, expected ${expected}"
             exit 1
           fi
-          echo "Services: [${want}]; POD_IP ${pod_ip}, POD_IPS ${pod_ips}; network attachments are JSON, ${tuned} tuned"
+          # IPv6 forwarding in the pod goes off only when the UPF has an IPv6
+          # address: in no attachment with the mode's values, in both with an
+          # IPv6 address on core, in every mode (v4 too).
+          fwd6() {
+            yq -N 'select(.kind == "NetworkAttachmentDefinition") | .spec.config' "$1" \
+              | jq -s '[.[] | .plugins // [] | .[] | select(.type == "tuning")
+                  | select(.sysctl["net.ipv6.conf.all.forwarding"] == "0")] | length'
+          }
+          base6=$(fwd6 rendered/sd-core.yaml); core6=$(fwd6 rendered/bess-upf-core6.yaml)
+          if [ "$base6" != 0 ] || [ "$core6" != 2 ]; then
+            echo "::error::IPv6 forwarding 0 in ${base6} attachments without and ${core6} with a UPF IPv6 address, expected 0 and 2"
+            exit 1
+          fi
+          echo "Services: [${want}]; POD_IP ${pod_ip}, POD_IPS ${pod_ips}; network attachments are JSON, ${tuned} tuned; IPv6 forwarding off ${base6}/${core6}"
 
   # The control plane on a kind cluster of the mode. The chart's resources are
   # checked against the API server, the Services' families as it set them, and

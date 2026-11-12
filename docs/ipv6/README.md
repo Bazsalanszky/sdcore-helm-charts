@@ -84,7 +84,19 @@ Nothing below renders while `global.network` is empty.
   forwards depends on the CNI (Calico's `containerIPForwarding`, and the
   node's `net.ipv4.ip_forward` for a pod with no IPv4 address), so the chart
   sets it. The tuning plugin must be installed on the nodes; set
-  `interfaceSysctls: {}` to leave it out.
+  `interfaceSysctls: null` to leave it out. (`{}` does not: Helm merges an
+  empty map with the defaults.) A single default can be overridden by setting
+  its key, or dropped by setting it to `null`.
+- **UPF with an IPv6 address** (`config.upf.access` or `config.upf.core` `ips`
+  or `ip`): the default `interfaceSysctls` also has
+  `net.ipv6.conf.all.forwarding` 0, for the same reason as IPv4 `forwarding`,
+  once IPv6 UE or N3/N9 traffic reaches the pod. It is `all`, not `IFNAME`: the
+  kernel forwards IPv6 whenever `all.forwarding` is 1, whatever an interface's
+  own setting says, and writing `all` resets every interface in the pod's
+  namespace. The CNI may leave it at 1 (it was 1 on a dual-stack k3s + Calico
+  cluster). The tuning plugin is chained for such a UPF on an IPv4 cluster too,
+  unless `config.upf.ipv6.enabled` is `false`. A UPF without an IPv6 address
+  renders as before. Set the key to `"1"` to keep IPv6 forwarding on.
 
 ## Values that take both families
 
