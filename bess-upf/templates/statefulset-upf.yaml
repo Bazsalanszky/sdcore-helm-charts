@@ -64,7 +64,7 @@ spec:
         imagePullPolicy: {{ .Values.images.pullPolicy }}
         command: ["sh", "-xec"]
         args:
-        - {{ include "omec-user-plane.init_routes" . | replace "\n" "\n          " }}
+        - {{ list (include "omec-user-plane.init_addresses" .) (include "omec-user-plane.init_routes" .) | compact | join "\n" | replace "\n" "\n          " }}
           {{- range .Values.config.upf.routes }}
           ip route replace {{ .to }} via {{ .via }};
           {{- end }}
