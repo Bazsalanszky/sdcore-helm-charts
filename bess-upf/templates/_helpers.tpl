@@ -262,6 +262,37 @@ Usage: {{ tuple .Values.config.upf.core "ipv6" | include "omec-user-plane.gatewa
 {{- end -}}
 
 {{/*
+The commands of the bess-init container that add the addresses of access and
+core that their CNI plugin left out, before the routes go through them. The
+vfioveth plugin (DPDK mode) puts only the first address of the interface's ips
+on the kernel interface, so every further one, such as the IPv6 address of a
+dual-stack access or core, is added here. Without it the kernel interface has
+no IPv6 address: BESS's pipeline and pfcpiface see none, and the IPv6 routes
+through that interface fail. An IPv6 address is added with nodad: BESS, which
+carries the kernel's Neighbour Discovery in DPDK mode, is not running yet.
+Other CNI plugins add every address themselves, and nothing is rendered.
+*/}}
+{{- define "omec-user-plane.init_addresses" -}}
+{{- $cmds := list -}}
+{{- range $name := list "access" "core" -}}
+{{- $interface := index $.Values.config.upf $name -}}
+{{- if eq $interface.cniPlugin "vfioveth" -}}
+{{- $ifname := index $.Values.config.upf.cfgFiles "upf.jsonc" $name "ifname" -}}
+{{- range $i, $address := ($interface.ips | default (list $interface.ip)) -}}
+{{- if gt $i 0 -}}
+{{- if contains ":" (toString $address) -}}
+{{- $cmds = append $cmds (printf "ip -6 addr replace %s dev %s nodad;" $address $ifname) -}}
+{{- else -}}
+{{- $cmds = append $cmds (printf "ip addr replace %s dev %s;" $address $ifname) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- join "\n" $cmds -}}
+{{- end -}}
+
+{{/*
 The commands of the bess-init container that route the RAN subnets through the
 access gateway and the default route through the core gateway, one per entry.
 An address with a colon is IPv6 and goes through the gateway of that family.
