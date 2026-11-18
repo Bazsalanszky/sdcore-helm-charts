@@ -82,8 +82,14 @@ config:
       port: 8080
       # Provide nodePort when serviceType is NodePort
       #nodePort: 30088
+    # Hugepages for DPDK, requested by the bessd container as
+    # hugepages-<pageSize>: <amount>. A node that cannot reserve 1Gi pages
+    # (no hugepagesz=1G on its kernel command line, or memory too fragmented
+    # to allocate them at runtime) can use 2Mi pages instead.
     hugepage:
       enabled: true
+      #pageSize: 1Gi
+      #amount: 2Gi
     sriov:
       enabled: true
     # Dynamic IP allocation is not supported yet
