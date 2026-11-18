@@ -104,6 +104,14 @@ config:
       cniPlugin: vfioveth
       # Provide sriov resource name when sriov is enabled
       resourceName: "intel.com/intel_sriov_vfio"
+      # The devices of this resource in the SR-IOV device plugin's config
+      # (its "selectors" object), instead of the default: the Intel VFs
+      # (vendor 8086) of the PF named iface, bound to vfio-pci. Set it for
+      # other NICs, or for whole PCI devices bound to vfio-pci, e.g. the
+      # virtio NICs of a VM without SR-IOV:
+      #sriovSelectors:
+      #  pciAddresses: ["0000:00:08.0"]
+      #  drivers: ["vfio-pci"]
       gateway: 192.168.252.1
       ip: 192.168.252.3/24
       #mac:
@@ -114,6 +122,9 @@ config:
       cniPlugin: vfioveth
       # Provide sriov resource name when sriov is enabled
       resourceName: "intel.com/intel_sriov_vfio"
+      # As for access. When access and core share one resourceName, the
+      # resource's selectors are access.sriovSelectors.
+      #sriovSelectors:
       gateway: 192.168.250.1
       ip: 192.168.250.3/24
       #mac:
