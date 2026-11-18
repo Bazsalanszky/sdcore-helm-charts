@@ -89,8 +89,14 @@ config:
       port: 8080
       # Provide nodePort when serviceType is NodePort
       #nodePort: 30088
+    # Hugepages for DPDK, requested by the bessd container as
+    # hugepages-<pageSize>: <amount>. A node that cannot reserve 1Gi pages
+    # (no hugepagesz=1G on its kernel command line, or memory too fragmented
+    # to allocate them at runtime) can use 2Mi pages instead.
     hugepage:
       enabled: true
+      #pageSize: 1Gi
+      #amount: 2Gi
     sriov:
       enabled: true
     # The UPF pod's IPv6 settings. They apply when enabled is true, or, with
@@ -151,6 +157,14 @@ config:
       cniPlugin: vfioveth
       # Provide sriov resource name when sriov is enabled
       resourceName: "intel.com/intel_sriov_vfio"
+      # The devices of this resource in the SR-IOV device plugin's config
+      # (its "selectors" object), instead of the default: the Intel VFs
+      # (vendor 8086) of the PF named iface, bound to vfio-pci. Set it for
+      # other NICs, or for whole PCI devices bound to vfio-pci, e.g. the
+      # virtio NICs of a VM without SR-IOV:
+      #sriovSelectors:
+      #  pciAddresses: ["0000:00:08.0"]
+      #  drivers: ["vfio-pci"]
       gateway: 192.168.252.1
       ip: 192.168.252.3/24
       # Addresses of either family, used instead of ip; and a gateway per family
@@ -169,6 +183,9 @@ config:
       cniPlugin: vfioveth
       # Provide sriov resource name when sriov is enabled
       resourceName: "intel.com/intel_sriov_vfio"
+      # As for access. When access and core share one resourceName, the
+      # resource's selectors are access.sriovSelectors.
+      #sriovSelectors:
       gateway: 192.168.250.1
       ip: 192.168.250.3/24
       # As for access.

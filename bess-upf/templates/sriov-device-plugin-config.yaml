@@ -35,30 +35,42 @@ data:
         {
           "resourcePrefix": "{{ $accessResourcePrefix }}",
           "resourceName": "{{ $accessResourceName }}",
+        {{- if .Values.config.upf.access.sriovSelectors }}
+          "selectors": {{ toJson .Values.config.upf.access.sriovSelectors }}
+        {{- else }}
           "selectors": {
             "pfNames": [{{- range $index, $iface := $sharedPoolIfaces }}{{ if $index }}, {{ end }}"{{ $iface }}"{{- end }}],
             "vendors": ["8086"],
             "drivers": ["vfio-pci"]
           }
+        {{- end }}
         }
 {{- else }}
         {
           "resourcePrefix": "{{ $accessResourcePrefix }}",
           "resourceName": "{{ $accessResourceName }}",
+        {{- if .Values.config.upf.access.sriovSelectors }}
+          "selectors": {{ toJson .Values.config.upf.access.sriovSelectors }}
+        {{- else }}
           "selectors": {
             "pfNames": ["{{ .Values.config.upf.access.iface }}#0"],
             "vendors": ["8086"],
             "drivers": ["vfio-pci"]
           }
+        {{- end }}
         },
         {
           "resourcePrefix": "{{ $coreResourcePrefix }}",
           "resourceName": "{{ $coreResourceName }}",
+        {{- if .Values.config.upf.core.sriovSelectors }}
+          "selectors": {{ toJson .Values.config.upf.core.sriovSelectors }}
+        {{- else }}
           "selectors": {
             "pfNames": ["{{ .Values.config.upf.core.iface }}#1"],
             "vendors": ["8086"],
             "drivers": ["vfio-pci"]
           }
+        {{- end }}
         }
 {{- end }}
       ]
