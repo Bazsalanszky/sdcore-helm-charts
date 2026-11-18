@@ -115,7 +115,7 @@ spec:
 {{ toYaml .Values.resources.bess.requests | indent 12 }}
           {{- end }}
           {{- if .Values.config.upf.hugepage.enabled }}
-            hugepages-1Gi: 2Gi
+            hugepages-{{ .Values.config.upf.hugepage.pageSize | default "1Gi" }}: {{ .Values.config.upf.hugepage.amount | default "2Gi" }}
           {{- end }}
           {{- if .Values.config.upf.sriov.enabled }}
           {{- if eq .Values.config.upf.access.resourceName .Values.config.upf.core.resourceName }}
@@ -130,7 +130,7 @@ spec:
 {{ toYaml .Values.resources.bess.limits | indent 12 }}
           {{- end }}
           {{- if .Values.config.upf.hugepage.enabled }}
-            hugepages-1Gi: 2Gi
+            hugepages-{{ .Values.config.upf.hugepage.pageSize | default "1Gi" }}: {{ .Values.config.upf.hugepage.amount | default "2Gi" }}
           {{- end }}
           {{- if .Values.config.upf.sriov.enabled }}
           {{- if eq .Values.config.upf.access.resourceName .Values.config.upf.core.resourceName }}
