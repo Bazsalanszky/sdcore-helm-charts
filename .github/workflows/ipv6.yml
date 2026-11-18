@@ -138,7 +138,16 @@ jobs:
             echo "::error::IPv6 forwarding 0 in ${base6} attachments without and ${core6} with a UPF IPv6 address, expected 0 and 2"
             exit 1
           fi
-          echo "Services: [${want}]; POD_IP ${pod_ip}, POD_IPS ${pod_ips}; network attachments are JSON, ${tuned} tuned; IPv6 forwarding off ${base6}/${core6}"
+          # vfioveth (the default cniPlugin, DPDK mode) puts only the first
+          # address on the interface: bess-init adds the IPv6 one on core,
+          # and nothing in the render without one.
+          init() { yq -N 'select(.kind == "StatefulSet") | .spec.template.spec.initContainers[] | select(.name == "bess-init") | .args[0]' "$1"; }
+          if init rendered/bess-upf.yaml | grep -q 'addr replace' \
+            || ! init rendered/bess-upf-core6.yaml | grep -qF 'ip -6 addr replace 2001:db8:250::3/64 dev core nodad;'; then
+            echo "::error::bess-init does not add exactly the further vfioveth addresses"
+            exit 1
+          fi
+          echo "Services: [${want}]; POD_IP ${pod_ip}, POD_IPS ${pod_ips}; network attachments are JSON, ${tuned} tuned; IPv6 forwarding off ${base6}/${core6}; vfioveth addresses in bess-init"
 
   # The control plane on a kind cluster of the mode. The chart's resources are
   # checked against the API server, the Services' families as it set them, and
